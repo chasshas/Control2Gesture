@@ -53,10 +53,20 @@ pytest                          # run tests (no camera/display needed)
   which it is; continuous ones must be added to `CONTINUOUS_ACTIONS`.
 - Type hints and short docstrings on public functions. Match the existing style.
 
+## Gesture representation
+
+Recognition speaks a single `[left, right]` pair: `classify_hands()` returns
+`[left_gesture, right_gesture]`, with `None` on a side that has no hand. Config
+keys off that pair — each `config/gestures.yaml` entry is
+`{gesture: [left, right], action: ...}` — so a single-hand gesture is
+`[null, <pose>]` (right) or `[<pose>, null]` (left), and a two-hand gesture
+names both poses. There is no separate combined-name path.
+
 ## How to extend
 
-- **New gesture:** add a branch in `gesture_recognizer.classify()` returning a
-  new name + a test, then map it in `config/gestures.yaml`.
+- **New pose:** add a branch in `gesture_recognizer.classify()` returning a new
+  pose name + a test, then map the `[left, right]` pair(s) that use it in
+  `config/gestures.yaml`.
 - **New action:** add a handler in `ActionMapper._run_oneshot` /
   `_run_continuous`, and a `Controller` method for the actual OS call.
 

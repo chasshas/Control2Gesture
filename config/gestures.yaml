@@ -1,21 +1,14 @@
 # Control2Gesture configuration.
 #
 # `settings` tunes the camera, the MediaPipe detector, and cursor behaviour.
-# `gestures` maps a recognized gesture name to an action. Any gesture not
-# listed here (or mapped to `none`) is detected but does nothing.
+# `gestures` is a list of entries, each keyed by the [left, right] hand-pose
+# pair the recognizer produces. `null` means "no hand on that side", so a
+# single-hand gesture is written as [null, <pose>] (right hand) or
+# [<pose>, null] (left hand). Any pair not listed here (or mapped to `none`)
+# is detected but does nothing. Left/Right follow the on-screen handedness.
 #
-# Recognized gesture names (see src/control2gesture/gesture_recognizer.py):
-#   Single hand: fist, open_palm, pointing, victory, three, thumbs_up, pinch
-#   Two hands, BOTH the same pose (symmetric):
-#     two_hand_pinch    - both pinch;      move apart/together to zoom
-#     two_hand_open     - both open palms; move apart/together for volume
-#     two_hand_fist     - both fists;      one-shot (e.g. show desktop)
-#     two_hand_victory  - both peace signs; one-shot (e.g. screenshot)
-#   Two hands, a DIFFERENT pose per hand (asymmetric; oriented by which hand
-#   is Left vs Right on screen):
-#     left_fist_right_point  - left fist + right index
-#     left_point_right_fist  - left index + right fist
-#     left_open_right_fist   - left open palm + right fist
+# Recognized single-hand poses (see src/control2gesture/gesture_recognizer.py):
+#   fist, open_palm, pointing, victory, three, thumbs_up, pinch
 #
 # Action types:
 #   none         - do nothing
@@ -59,51 +52,48 @@ settings:
   show_window: true              # show the annotated camera preview
 
 gestures:
-  pointing:
+  # --- Single hand (right hand up; left side null) ---
+  - gesture: [null, pointing]
     action: move_cursor
-  pinch:
+  - gesture: [null, pinch]
     action: left_click
-  fist:
-    action: none
-  victory:
+  - gesture: [null, victory]
     action: right_click
-  thumbs_up:
+  - gesture: [null, thumbs_up]
     action: scroll_up
     amount: 3
-  three:
+  - gesture: [null, three]
     action: scroll_down
     amount: 3
-  open_palm:
-    action: none
 
-  # --- Two-hand gestures (require max_hands: 2) ---
-  two_hand_pinch:
+  # --- Two hands, same pose (require max_hands: 2) ---
+  - gesture: [pinch, pinch]        # move apart/together to zoom
     action: zoom
-  two_hand_open:
+  - gesture: [open_palm, open_palm]  # move apart/together for volume
     action: volume
-  two_hand_fist:
+  - gesture: [fist, fist]
     # Both fists -> show desktop / mission control. Customize per OS:
     #   macOS: ["ctrl", "up"] (Mission Control)  Windows: ["win", "d"]
     action: hotkey
     keys: ["ctrl", "up"]
-  two_hand_victory:
+  - gesture: [victory, victory]
     # Both peace signs -> screenshot. Customize per OS:
     #   macOS: ["command", "shift", "4"]  Windows: ["win", "shift", "s"]
     action: hotkey
     keys: ["command", "shift", "4"]
 
-  # Asymmetric: a different pose per hand. Orientation follows on-screen
-  # handedness; if left/right feel swapped, flip the two mappings below (or
-  # toggle `flip_horizontal`).
-  left_fist_right_point:
+  # --- Two hands, a different pose per hand ---
+  # Orientation follows on-screen handedness; if left/right feel swapped, flip
+  # the pair (or toggle `flip_horizontal`).
+  - gesture: [fist, pointing]
     # Next tab. macOS: ["command", "shift", "]"]  Windows: ["ctrl", "tab"]
     action: hotkey
     keys: ["command", "shift", "]"]
-  left_point_right_fist:
+  - gesture: [pointing, fist]
     # Previous tab. macOS: ["command", "shift", "["]  Windows: ["ctrl", "shift", "tab"]
     action: hotkey
     keys: ["command", "shift", "["]
-  left_open_right_fist:
+  - gesture: [open_palm, fist]
     # Undo. macOS: ["command", "z"]  Windows: ["ctrl", "z"]
     action: hotkey
     keys: ["command", "z"]

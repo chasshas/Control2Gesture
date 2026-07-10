@@ -112,75 +112,25 @@ def hands_distance(landmarks_a: np.ndarray, landmarks_b: np.ndarray) -> float:
     return float(np.linalg.norm(a - b))
 
 
-# Two-hand gestures, keyed by (left_hand_pose, right_hand_pose) using
-# MediaPipe's on-screen handedness labels. Symmetric entries (same pose on both
-# hands) also match when handedness is ambiguous; asymmetric entries — a
-# different pose per hand — need a clear Left/Right split to orient them.
-_TWO_HAND_COMBOS = {
-    # Symmetric: both hands show the same pose.
-    ("pinch", "pinch"): "two_hand_pinch",
-    ("open_palm", "open_palm"): "two_hand_open",
-    ("fist", "fist"): "two_hand_fist",
-    ("victory", "victory"): "two_hand_victory",
-    # Asymmetric: a different pose per hand.
-    ("fist", "pointing"): "left_fist_right_point",
-    ("pointing", "fist"): "left_point_right_fist",
-    ("open_palm", "fist"): "left_open_right_fist",
-}
-
-
 def classify_hands(
     hands: list[tuple[np.ndarray, str]],
     pinch_threshold: float = 0.06,
 ) -> list[str | None]:
     """Classify each detected hand and return ``[left_gesture, right_gesture]``.
 
+    This is the single recognition entry point: the whole system speaks in this
+    ``[left, right]`` pair, and :meth:`Config.action_for` looks the pair up
+    directly to decide what to do.
+
     ``hands`` is a list of ``(landmarks, handedness)`` pairs (0, 1, or 2 of
     them), as produced from :class:`HandTracker` results. The output is always a
     two-slot list ordered by side using MediaPipe's handedness labels, e.g.
     ``["fist", "pointing"]``; a side with no hand present is ``None`` (e.g.
-    ``["fist", None]`` when only the left hand is up).
+    ``[None, "pointing"]`` when only the right hand is up, ``[None, None]`` when
+    no hand is up).
     """
     sides: dict[str, str | None] = {"Left": None, "Right": None}
     for landmarks, handedness in hands:
         if handedness in sides:
             sides[handedness] = classify(landmarks, handedness, pinch_threshold)
     return [sides["Left"], sides["Right"]]
-
-
-def classify_two_hands(
-    landmarks_a: np.ndarray,
-    handedness_a: str,
-    landmarks_b: np.ndarray,
-    handedness_b: str,
-    pinch_threshold: float = 0.06,
-) -> str:
-    """Classify a pose that uses both hands together.
-
-    Each hand is classified independently (see :func:`classify_hands`), then the
-    ``[left, right]`` pair is looked up in :data:`_TWO_HAND_COMBOS`. Asymmetric
-    combos are oriented by MediaPipe handedness, so hand order in the arguments
-    does not matter.
-
-    Returns one of: two_hand_pinch, two_hand_open, two_hand_fist,
-    two_hand_victory, left_fist_right_point, left_point_right_fist,
-    left_open_right_fist, unknown.
-
-    The distance-driven ones (``two_hand_pinch`` -> zoom, ``two_hand_open`` ->
-    volume) use :func:`hands_distance` in the :class:`ActionMapper`: moving the
-    hands apart or together drives the action up/down.
-    """
-    left, right = classify_hands(
-        [(landmarks_a, handedness_a), (landmarks_b, handedness_b)],
-        pinch_threshold,
-    )
-    if left is not None and right is not None:
-        return _TWO_HAND_COMBOS.get((left, right), "unknown")
-
-    # Handedness ambiguous (same label or "Unknown"): without a reliable
-    # Left/Right split we can only trust symmetric (same-pose) combos.
-    gesture_a = classify(landmarks_a, handedness_a, pinch_threshold)
-    gesture_b = classify(landmarks_b, handedness_b, pinch_threshold)
-    if gesture_a == gesture_b:
-        return _TWO_HAND_COMBOS.get((gesture_a, gesture_b), "unknown")
-    return "unknown"

@@ -10,7 +10,10 @@ Quick reference:
 - **Test:** `pytest` (pure logic only; no camera/display required)
 - **Architecture:** `main → hand_tracker → gesture_recognizer → action_mapper → controller`.
   Keep recognition free of `pyautogui` and OS control free of `mediapipe`.
-- **Extend a gesture:** add a rule + test in `gesture_recognizer.py`, then map it
-  in `config/gestures.yaml`.
+- **Gestures are `[left, right]` pairs:** recognition returns a
+  `[left_gesture, right_gesture]` pair (`None` per empty side); `gestures.yaml`
+  keys actions by that pair (`gesture: [left, right]`, `null` for an empty side).
+- **Extend a gesture:** add a pose rule + test in `gesture_recognizer.py`, then
+  map the pair in `config/gestures.yaml`.
 
 See [AGENTS.md](./AGENTS.md) for conventions, safety notes, and details.

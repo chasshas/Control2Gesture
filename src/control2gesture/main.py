@@ -35,21 +35,14 @@ def _draw_hand(frame: np.ndarray, hand: HandResult) -> None:
 
 def _draw_banner(
     frame: np.ndarray,
-    gesture: str,
+    hands_pair: list[str | None],
     action: str,
-    hands_pair: list[str | None] | None = None,
 ) -> None:
-    """Draw the gesture/action status banner across the top of the frame.
-
-    ``hands_pair`` is the ``[left, right]`` per-hand detection; when given it is
-    shown alongside the combined gesture/action.
-    """
+    """Draw the ``[left, right]`` gesture pair and its action across the top."""
     w = frame.shape[1]
     cv2.rectangle(frame, (0, 0), (w, 40), (30, 30, 30), -1)
-    text = f"gesture: {gesture}   action: {action}"
-    if hands_pair is not None:
-        left, right = hands_pair
-        text = f"L:{left or '-'}  R:{right or '-'}   {text}"
+    left, right = hands_pair
+    text = f"L:{left or '-'}  R:{right or '-'}   action: {action}"
     cv2.putText(
         frame,
         text,
@@ -93,39 +86,27 @@ def run(config: Config) -> None:
                 rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                 hands = tracker.process(rgb)
 
-                # Per-hand detection as [left_gesture, right_gesture].
+                # The whole system speaks one [left, right] gesture pair.
                 hands_pair = gr.classify_hands(
                     [(h.landmarks, h.handedness) for h in hands], s.pinch_threshold
                 )
                 log.debug("hands: %s", hands_pair)
 
-                if len(hands) >= 2:
-                    # Two hands: recognize a combined gesture (e.g. zoom) from
-                    # the pair and drive it with the inter-hand distance.
-                    a, b = hands[0], hands[1]
-                    gesture = gr.classify_two_hands(
-                        a.landmarks, a.handedness,
-                        b.landmarks, b.handedness,
-                        s.pinch_threshold,
+                if hands:
+                    # cursor_xy drives move_cursor; distance drives zoom/volume
+                    # (only meaningful with two hands).
+                    cursor_xy = gr.index_tip_position(hands[0].landmarks)
+                    distance = (
+                        gr.hands_distance(hands[0].landmarks, hands[1].landmarks)
+                        if len(hands) >= 2
+                        else None
                     )
-                    distance = gr.hands_distance(a.landmarks, b.landmarks)
-                    mapper.handle_two_hands(gesture, distance)
-                    action = config.action_for(gesture).get("action", "none")
+                    mapper.handle(hands_pair, cursor_xy, distance)
+                    action = config.action_for(hands_pair).get("action", "none")
                     if s.show_window:
-                        _draw_hand(frame, a)
-                        _draw_hand(frame, b)
-                        _draw_banner(frame, gesture, action, hands_pair)
-                elif hands:
-                    hand = hands[0]
-                    gesture = gr.classify(
-                        hand.landmarks, hand.handedness, s.pinch_threshold
-                    )
-                    cursor_xy = gr.index_tip_position(hand.landmarks)
-                    mapper.handle(gesture, cursor_xy)
-                    action = config.action_for(gesture).get("action", "none")
-                    if s.show_window:
-                        _draw_hand(frame, hand)
-                        _draw_banner(frame, gesture, action, hands_pair)
+                        for hand in hands:
+                            _draw_hand(frame, hand)
+                        _draw_banner(frame, hands_pair, action)
                 else:
                     mapper.reset()
 
