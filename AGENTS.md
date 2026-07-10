@@ -17,6 +17,14 @@ Keep this separation. Recognition logic must not import `pyautogui`; OS control
 must not import `mediapipe`. This keeps `gesture_recognizer.py` unit-testable
 without a camera or a display.
 
+A separate, optional **GUI action mapper** (`gui.py` + pure-logic `gui_model.py`,
+run with `python -m control2gesture.gui`) edits `config/gestures.yaml` visually
+and imports/exports it. It only reads/writes the config schema — no camera or
+control imports — so keep its logic in `gui_model.py` (Tk-free, tested in
+`tests/test_gui_model.py`) and only the Tk widgets in `gui.py`. The poses/actions
+vocabularies in `gui_model.py` must stay in sync with `gesture_recognizer.classify`
+and `action_mapper`.
+
 ## Environment
 
 - Use **conda**: `conda env create -f environment.yml && conda activate control2gesture`.

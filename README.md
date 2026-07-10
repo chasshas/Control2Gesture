@@ -141,6 +141,24 @@ gestures:
     keys: ["ctrl", "c"]   # use "command" on macOS
 ```
 
+### GUI action mapper
+
+Prefer not to hand-edit YAML? A small desktop editor lets you build the
+`[left, right]` pose → action map visually and import/export it as YAML:
+
+```bash
+python -m control2gesture.gui     # or: control2gesture-gui
+```
+
+It opens `config/gestures.yaml` by default. Add/Edit/Duplicate/Remove rows,
+pick each hand's pose and the action from dropdowns (with the extra `amount` /
+`keys` fields shown only when the chosen action uses them), then **Save** back to
+the same file or **Save As / Export** to a new one. **Open / Import** loads any
+existing map. It validates as you go (unknown poses, duplicate pairs, missing
+keys), and what it writes is the exact schema the app reads — no camera or
+MediaPipe needed, so you can edit maps anywhere. Built on Tkinter (bundled with
+Python; no extra dependency).
+
 ## Development
 
 ```bash

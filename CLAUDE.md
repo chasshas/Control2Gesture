@@ -7,6 +7,8 @@ Quick reference:
 
 - **Setup:** `conda env create -f environment.yml && conda activate control2gesture && pip install -e .`
 - **Run:** `python -m control2gesture`
+- **Edit the gesture map in a GUI:** `python -m control2gesture.gui` (Tkinter
+  editor with YAML import/export; logic in `gui_model.py`, view in `gui.py`)
 - **Test:** `pytest` (pure logic only; no camera/display required)
 - **Architecture:** `main → hand_tracker → gesture_recognizer → action_mapper → controller`.
   Keep recognition free of `pyautogui` and OS control free of `mediapipe`.
