@@ -1,0 +1,10 @@
+# Prefer the conda environment (environment.yml). This file is provided for
+# pip-only workflows.
+mediapipe==0.10.18
+opencv-python==4.10.0.84
+pyautogui==0.9.54
+PyYAML==6.0.2
+numpy>=1.24,<2.0
+# macOS only: PyObjC bindings required by pyautogui.
+pyobjc-core==10.3.1; sys_platform == "darwin"
+pyobjc-framework-Quartz==10.3.1; sys_platform == "darwin"

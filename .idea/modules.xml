@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/.idea/Control2Gesture.iml" filepath="$PROJECT_DIR$/.idea/Control2Gesture.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/control2gesture.iml" filepath="$PROJECT_DIR$/.idea/control2gesture.iml" />
     </modules>
   </component>
 </project>

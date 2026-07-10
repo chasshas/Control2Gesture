@@ -1,0 +1,55 @@
+# Control2Gesture configuration.
+#
+# `settings` tunes the camera, the MediaPipe detector, and cursor behaviour.
+# `gestures` maps a recognized gesture name to an action. Any gesture not
+# listed here (or mapped to `none`) is detected but does nothing.
+#
+# Recognized gesture names (see src/control2gesture/gesture_recognizer.py):
+#   fist, open_palm, pointing, victory, thumbs_up, pinch, unknown
+#
+# Action types:
+#   none         - do nothing
+#   move_cursor  - continuous; moves the mouse using the index fingertip
+#   left_click   - one-shot; single left click
+#   right_click  - one-shot; single right click
+#   double_click - one-shot; double left click
+#   scroll_up    - continuous; scroll the wheel up by `amount`
+#   scroll_down  - continuous; scroll the wheel down by `amount`
+#   key          - one-shot; press keys in sequence (`keys`)
+#   hotkey       - one-shot; press keys together as a chord (`keys`)
+
+settings:
+  camera_index: 0
+  frame_width: 1280
+  frame_height: 720
+  flip_horizontal: true          # mirror view so movement feels natural
+  max_hands: 1
+  detection_confidence: 0.7
+  tracking_confidence: 0.6
+
+  # Cursor control.
+  cursor_smoothing: 0.5          # 0 = raw/jittery, ~0.9 = very smooth/laggy
+  cursor_margin: 0.15            # fraction of frame edges ignored, so screen
+                                 # corners are reachable without maxing out the hand
+  pinch_threshold: 0.06          # normalized thumb-index distance to count as a pinch
+
+  # A gesture must persist this many consecutive frames before a one-shot
+  # action fires. Prevents accidental double triggers.
+  stable_frames: 3
+
+  show_window: true              # show the annotated camera preview
+
+gestures:
+  pointing:
+    action: move_cursor
+  pinch:
+    action: left_click
+  fist:
+    action: none
+  victory:
+    action: right_click
+  thumbs_up:
+    action: scroll_up
+    amount: 3
+  open_palm:
+    action: none
