@@ -2,8 +2,9 @@
 
 Control your **mouse and keyboard with hand gestures**, using your webcam.
 Control2Gesture uses [MediaPipe](https://developers.google.com/mediapipe) to
-track your hand in real time, classifies the pose into a named gesture, and
-runs a pre-mapped action (move cursor, click, scroll, press a key, …).
+track your hands in real time, classifies each hand's pose into a
+`[left, right]` gesture pair, and runs a pre-mapped action (move cursor, click,
+scroll, press a key, …).
 
 No model training required — gestures are recognized from hand-landmark
 geometry, so it works out of the box and is easy to extend.
@@ -18,8 +19,8 @@ webcam ─▶ HandTracker ─▶ gesture_recognizer ─▶ ActionMapper ─▶ C
 1. **HandTracker** (`hand_tracker.py`) runs MediaPipe Hands and returns 21
    normalized landmarks per hand.
 2. **gesture_recognizer** (`gesture_recognizer.py`) decides which fingers are
-   extended and maps the pattern to a gesture name.
-3. **ActionMapper** (`action_mapper.py`) looks the gesture up in the config and
+   extended on each hand and produces one `[left, right]` pose pair.
+3. **ActionMapper** (`action_mapper.py`) looks that pair up in the config and
    dispatches the action, debouncing one-shot actions so they fire once per
    gesture.
 4. **Controller** (`controller.py`) performs the actual OS mouse/keyboard event
@@ -27,46 +28,50 @@ webcam ─▶ HandTracker ─▶ gesture_recognizer ─▶ ActionMapper ─▶ C
 
 ## Gestures (default mapping)
 
-| Gesture      | Pose                        | Action        |
-|--------------|-----------------------------|---------------|
-| `pointing`   | index finger only           | move cursor   |
-| `pinch`      | thumb + index tips touching | left click    |
-| `victory`    | index + middle (peace sign) | right click   |
-| `thumbs_up`  | thumb only                  | scroll up     |
-| `three`      | index + middle + ring       | scroll down   |
-| `fist`       | closed hand                 | none          |
-| `open_palm`  | all fingers spread          | none          |
+Every gesture is a `[left, right]` pair of hand poses. `null` means "no hand on
+that side", so a single-hand gesture uses `null` for the empty side. Left/Right
+follow the on-screen (mirrored) handedness. Recognized poses: `fist`,
+`open_palm`, `pointing`, `victory`, `three`, `thumbs_up`, `pinch`.
 
-**Two-hand gestures** — both hands the same pose (symmetric):
+**Single hand** — right hand up (`[null, <pose>]`):
 
-| Gesture            | Pose                    | Action                                   |
-|--------------------|-------------------------|------------------------------------------|
-| `two_hand_pinch`   | pinch with both hands   | zoom in/out as hands move apart/together |
-| `two_hand_open`    | both open palms         | volume up/down as hands move apart/together |
-| `two_hand_fist`    | both fists              | one-shot hotkey (default: show desktop)  |
-| `two_hand_victory` | both peace signs        | one-shot hotkey (default: screenshot)    |
+| Pair                  | Pose                        | Action      |
+|-----------------------|-----------------------------|-------------|
+| `[null, pointing]`    | index finger only           | move cursor |
+| `[null, pinch]`       | thumb + index tips touching | left click  |
+| `[null, victory]`     | index + middle (peace sign) | right click |
+| `[null, thumbs_up]`   | thumb only                  | scroll up   |
+| `[null, three]`       | index + middle + ring       | scroll down |
 
-**Two-hand gestures** — a different pose per hand (asymmetric):
+**Two hands, the same pose:**
 
-| Gesture                  | Pose (left + right)       | Action (default)         |
-|--------------------------|---------------------------|--------------------------|
-| `left_fist_right_point`  | left fist + right index   | one-shot hotkey (next tab)|
-| `left_point_right_fist`  | left index + right fist   | one-shot hotkey (prev tab)|
-| `left_open_right_fist`   | left open palm + right fist | one-shot hotkey (undo) |
+| Pair                     | Pose                  | Action                                   |
+|--------------------------|-----------------------|------------------------------------------|
+| `[pinch, pinch]`         | pinch with both hands | zoom in/out as hands move apart/together |
+| `[open_palm, open_palm]` | both open palms       | volume up/down as hands move apart/together |
+| `[fist, fist]`           | both fists            | one-shot hotkey (default: show desktop)  |
+| `[victory, victory]`     | both peace signs      | one-shot hotkey (default: screenshot)    |
+
+**Two hands, a different pose per hand:**
+
+| Pair                  | Pose (left + right)         | Action (default)          |
+|-----------------------|-----------------------------|---------------------------|
+| `[fist, pointing]`    | left fist + right index     | one-shot hotkey (next tab)|
+| `[pointing, fist]`    | left index + right fist     | one-shot hotkey (prev tab)|
+| `[open_palm, fist]`   | left open palm + right fist | one-shot hotkey (undo)    |
 
 With `max_hands: 2` (the default) the app tracks both hands at once. The
-distance-driven pair (`two_hand_pinch` → zoom, `two_hand_open` → volume) reacts
-to how far apart the hands are: pull apart to increase, bring together to
-decrease. Every other two-hand gesture fires a configurable hotkey once per
-gesture.
+distance-driven pairs (`[pinch, pinch]` → zoom, `[open_palm, open_palm]` →
+volume) react to how far apart the hands are: pull apart to increase, bring
+together to decrease. Every other two-hand pair fires a configurable hotkey once
+per gesture.
 
-Asymmetric gestures are oriented by which hand is **Left** vs **Right** on
-screen (MediaPipe's handedness). If left/right feel swapped, flip the two
-mappings in `config/gestures.yaml` or toggle `flip_horizontal`. All default
-hotkey `keys` are macOS-oriented — each mapping lists the Windows equivalent in
-a comment.
+Pairs are oriented by which hand is **Left** vs **Right** on screen (MediaPipe's
+handedness). If left/right feel swapped, flip the pair in
+`config/gestures.yaml` or toggle `flip_horizontal`. All default hotkey `keys`
+are macOS-oriented — each mapping lists the Windows equivalent in a comment.
 
-Edit `config/gestures.yaml` to remap any gesture to any action.
+Edit `config/gestures.yaml` to remap any pair to any action.
 
 ## Setup (conda)
 
@@ -119,18 +124,19 @@ Press **`q`** in the window (or `Ctrl+C` in the terminal) to quit.
 - **`settings`** — camera index/resolution, MediaPipe confidences, cursor
   smoothing/margin, pinch threshold, and `stable_frames` (how many frames a
   gesture must persist before a one-shot action fires).
-- **`gestures`** — maps each gesture name to an action. Action types:
+- **`gestures`** — a list of entries, each keyed by a `[left, right]` pose pair
+  (`null` for an empty side) and mapped to an action. Action types:
   `none`, `move_cursor`, `left_click`, `right_click`, `double_click`,
   `scroll_up`, `scroll_down`, `zoom`/`volume` (two-hand), `key` (sequential),
   `hotkey` (chord). The distance-driven two-hand actions are tuned by
   `max_hands`, `two_hand_deadzone` (how far the hands must move per step) and
   `two_hand_step`.
 
-Example — make the peace sign copy:
+Example — make a right-hand peace sign copy:
 
 ```yaml
 gestures:
-  victory:
+  - gesture: [null, victory]
     action: hotkey
     keys: ["ctrl", "c"]   # use "command" on macOS
 ```
@@ -149,11 +155,11 @@ Control2Gesture/
 ├── src/control2gesture/
 │   ├── main.py                     # camera loop + overlay (entry point)
 │   ├── hand_tracker.py             # MediaPipe wrapper
-│   ├── gesture_recognizer.py       # landmarks → gesture name
-│   ├── action_mapper.py            # gesture → action, with debounce
+│   ├── gesture_recognizer.py       # landmarks → [left, right] pose pair
+│   ├── action_mapper.py            # pair → action, with debounce
 │   ├── controller.py               # pyautogui mouse/keyboard
 │   └── config.py                   # YAML config loader
-├── tests/test_gesture_recognizer.py
+├── tests/                          # test_gesture_recognizer.py, test_config.py
 ├── environment.yml                 # conda environment
 ├── requirements.txt                # pip fallback
 ├── CLAUDE.md / AGENTS.md           # guidance for AI coding agents
@@ -162,22 +168,21 @@ Control2Gesture/
 
 ## Extending
 
-To add a new single-hand gesture, add a branch in
-`gesture_recognizer.classify()` returning a new name, then map that name in
-`config/gestures.yaml`. To add a new action type, add a handler in
-`ActionMapper` and (if continuous) list it in `CONTINUOUS_ACTIONS`.
+Recognition speaks one `[left, right]` pair.
+`gesture_recognizer.classify_hands(hands)` returns
+`[left_gesture, right_gesture]`, with `None` on a side that has no hand (e.g.
+`["fist", "pointing"]`, `[None, "pointing"]`, or `[None, None]`). The preview
+banner shows it live as `L:… R:…`, and `-v` logs it each frame. `ActionMapper`
+looks that pair up in the config and dispatches; `zoom`/`volume` are
+distance-driven, `move_cursor`/scroll are continuous, everything else fires once
+per stable pair.
 
-Per-hand detection is available as `gesture_recognizer.classify_hands(hands)`,
-which returns the pair `[left_gesture, right_gesture]` (a side with no hand is
-`None`, e.g. `["fist", "pointing"]` or `["fist", None]`). The preview banner
-shows it live as `L:… R:…`, and `-v` logs it each frame.
-
-Two-hand *combined* gestures are entries in the `_TWO_HAND_COMBOS` table in
-`gesture_recognizer.py`, keyed by `(left_hand_pose, right_hand_pose)` — add a
-row (symmetric or asymmetric), map the new name in `config/gestures.yaml`, and
-add a test with synthetic landmarks. They are dispatched by
-`ActionMapper.handle_two_hands()`; `zoom`/`volume` are distance-driven, anything
-else fires as a one-shot.
+To add a new **pose**, add a branch in `gesture_recognizer.classify()` returning
+a new pose name plus a test with synthetic landmarks, then map the `[left,
+right]` pair(s) that use it in `config/gestures.yaml` — single-hand as
+`[null, <pose>]`, two-hand as `[<left>, <right>]`. To add a new **action type**,
+add a handler in `ActionMapper` and (if continuous) list it in
+`CONTINUOUS_ACTIONS` (or `TWO_HAND_DISTANCE_ACTIONS` for a distance-driven one).
 
 ## License
 
