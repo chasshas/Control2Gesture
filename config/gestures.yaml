@@ -5,7 +5,17 @@
 # listed here (or mapped to `none`) is detected but does nothing.
 #
 # Recognized gesture names (see src/control2gesture/gesture_recognizer.py):
-#   fist, open_palm, pointing, victory, three, thumbs_up, pinch, unknown
+#   Single hand: fist, open_palm, pointing, victory, three, thumbs_up, pinch
+#   Two hands, BOTH the same pose (symmetric):
+#     two_hand_pinch    - both pinch;      move apart/together to zoom
+#     two_hand_open     - both open palms; move apart/together for volume
+#     two_hand_fist     - both fists;      one-shot (e.g. show desktop)
+#     two_hand_victory  - both peace signs; one-shot (e.g. screenshot)
+#   Two hands, a DIFFERENT pose per hand (asymmetric; oriented by which hand
+#   is Left vs Right on screen):
+#     left_fist_right_point  - left fist + right index
+#     left_point_right_fist  - left index + right fist
+#     left_open_right_fist   - left open palm + right fist
 #
 # Action types:
 #   none         - do nothing
@@ -15,6 +25,10 @@
 #   double_click - one-shot; double left click
 #   scroll_up    - continuous; scroll the wheel up by `amount`
 #   scroll_down  - continuous; scroll the wheel down by `amount`
+#   zoom         - continuous (two-hand); app zoom in/out as the hands move
+#                  apart/together (Cmd +/- on macOS, Ctrl +/- elsewhere)
+#   volume       - continuous (two-hand); system volume up/down as the hands
+#                  move apart/together (media keys; best-effort on macOS)
 #   key          - one-shot; press keys in sequence (`keys`)
 #   hotkey       - one-shot; press keys together as a chord (`keys`)
 
@@ -23,7 +37,7 @@ settings:
   frame_width: 1280
   frame_height: 720
   flip_horizontal: true          # mirror view so movement feels natural
-  max_hands: 1
+  max_hands: 2                   # 2 enables two-hand gestures (e.g. zoom)
   detection_confidence: 0.7
   tracking_confidence: 0.6
 
@@ -36,6 +50,11 @@ settings:
   # A gesture must persist this many consecutive frames before a one-shot
   # action fires. Prevents accidental double triggers.
   stable_frames: 3
+
+  # Distance-driven two-hand gestures (zoom, volume): how far (normalized) the
+  # hands must move to emit one step, and how many key presses each step sends.
+  two_hand_deadzone: 0.03
+  two_hand_step: 1
 
   show_window: true              # show the annotated camera preview
 
@@ -56,3 +75,35 @@ gestures:
     amount: 3
   open_palm:
     action: none
+
+  # --- Two-hand gestures (require max_hands: 2) ---
+  two_hand_pinch:
+    action: zoom
+  two_hand_open:
+    action: volume
+  two_hand_fist:
+    # Both fists -> show desktop / mission control. Customize per OS:
+    #   macOS: ["ctrl", "up"] (Mission Control)  Windows: ["win", "d"]
+    action: hotkey
+    keys: ["ctrl", "up"]
+  two_hand_victory:
+    # Both peace signs -> screenshot. Customize per OS:
+    #   macOS: ["command", "shift", "4"]  Windows: ["win", "shift", "s"]
+    action: hotkey
+    keys: ["command", "shift", "4"]
+
+  # Asymmetric: a different pose per hand. Orientation follows on-screen
+  # handedness; if left/right feel swapped, flip the two mappings below (or
+  # toggle `flip_horizontal`).
+  left_fist_right_point:
+    # Next tab. macOS: ["command", "shift", "]"]  Windows: ["ctrl", "tab"]
+    action: hotkey
+    keys: ["command", "shift", "]"]
+  left_point_right_fist:
+    # Previous tab. macOS: ["command", "shift", "["]  Windows: ["ctrl", "shift", "tab"]
+    action: hotkey
+    keys: ["command", "shift", "["]
+  left_open_right_fist:
+    # Undo. macOS: ["command", "z"]  Windows: ["ctrl", "z"]
+    action: hotkey
+    keys: ["command", "z"]

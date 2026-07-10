@@ -7,7 +7,13 @@ silently ignore synthetic mouse/keyboard events.
 
 from __future__ import annotations
 
+import sys
+
 import pyautogui
+
+# App-level zoom is Cmd +/- on macOS, Ctrl +/- elsewhere.
+_ZOOM_MODIFIER = "command" if sys.platform == "darwin" else "ctrl"
+_MAX_STEPS_PER_FRAME = 5  # cap presses per frame so a big jump can't runaway
 
 
 class Controller:
@@ -59,6 +65,31 @@ class Controller:
     def scroll(self, amount: int) -> None:
         """Positive scrolls up, negative scrolls down."""
         pyautogui.scroll(amount)
+
+    def zoom(self, steps: int) -> None:
+        """App-level zoom via the platform modifier + '+'/'-'.
+
+        Positive ``steps`` zooms in, negative zooms out. The count is capped so
+        a large jump in one frame cannot fire an unbounded burst of presses.
+        """
+        if steps == 0:
+            return
+        key = "+" if steps > 0 else "-"
+        for _ in range(min(abs(steps), _MAX_STEPS_PER_FRAME)):
+            pyautogui.hotkey(_ZOOM_MODIFIER, key)
+
+    def change_volume(self, steps: int) -> None:
+        """Raise (positive) or lower (negative) the system volume.
+
+        Uses the media volume keys. These are recognized on Windows/Linux; on
+        macOS they may be ignored depending on the keyboard/driver, so treat
+        this as best-effort. Count is capped per frame like :meth:`zoom`.
+        """
+        if steps == 0:
+            return
+        key = "volumeup" if steps > 0 else "volumedown"
+        for _ in range(min(abs(steps), _MAX_STEPS_PER_FRAME)):
+            pyautogui.press(key)
 
     def press_keys(self, keys: list[str]) -> None:
         """Press keys one after another."""

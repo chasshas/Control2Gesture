@@ -37,6 +37,35 @@ webcam ─▶ HandTracker ─▶ gesture_recognizer ─▶ ActionMapper ─▶ C
 | `fist`       | closed hand                 | none          |
 | `open_palm`  | all fingers spread          | none          |
 
+**Two-hand gestures** — both hands the same pose (symmetric):
+
+| Gesture            | Pose                    | Action                                   |
+|--------------------|-------------------------|------------------------------------------|
+| `two_hand_pinch`   | pinch with both hands   | zoom in/out as hands move apart/together |
+| `two_hand_open`    | both open palms         | volume up/down as hands move apart/together |
+| `two_hand_fist`    | both fists              | one-shot hotkey (default: show desktop)  |
+| `two_hand_victory` | both peace signs        | one-shot hotkey (default: screenshot)    |
+
+**Two-hand gestures** — a different pose per hand (asymmetric):
+
+| Gesture                  | Pose (left + right)       | Action (default)         |
+|--------------------------|---------------------------|--------------------------|
+| `left_fist_right_point`  | left fist + right index   | one-shot hotkey (next tab)|
+| `left_point_right_fist`  | left index + right fist   | one-shot hotkey (prev tab)|
+| `left_open_right_fist`   | left open palm + right fist | one-shot hotkey (undo) |
+
+With `max_hands: 2` (the default) the app tracks both hands at once. The
+distance-driven pair (`two_hand_pinch` → zoom, `two_hand_open` → volume) reacts
+to how far apart the hands are: pull apart to increase, bring together to
+decrease. Every other two-hand gesture fires a configurable hotkey once per
+gesture.
+
+Asymmetric gestures are oriented by which hand is **Left** vs **Right** on
+screen (MediaPipe's handedness). If left/right feel swapped, flip the two
+mappings in `config/gestures.yaml` or toggle `flip_horizontal`. All default
+hotkey `keys` are macOS-oriented — each mapping lists the Windows equivalent in
+a comment.
+
 Edit `config/gestures.yaml` to remap any gesture to any action.
 
 ## Setup (conda)
@@ -92,7 +121,10 @@ Press **`q`** in the window (or `Ctrl+C` in the terminal) to quit.
   gesture must persist before a one-shot action fires).
 - **`gestures`** — maps each gesture name to an action. Action types:
   `none`, `move_cursor`, `left_click`, `right_click`, `double_click`,
-  `scroll_up`, `scroll_down`, `key` (sequential), `hotkey` (chord).
+  `scroll_up`, `scroll_down`, `zoom`/`volume` (two-hand), `key` (sequential),
+  `hotkey` (chord). The distance-driven two-hand actions are tuned by
+  `max_hands`, `two_hand_deadzone` (how far the hands must move per step) and
+  `two_hand_step`.
 
 Example — make the peace sign copy:
 
@@ -130,10 +162,22 @@ Control2Gesture/
 
 ## Extending
 
-To add a new gesture, add a branch in `gesture_recognizer.classify()` returning
-a new name, then map that name in `config/gestures.yaml`. To add a new action
-type, add a handler in `ActionMapper` and (if continuous) list it in
-`CONTINUOUS_ACTIONS`.
+To add a new single-hand gesture, add a branch in
+`gesture_recognizer.classify()` returning a new name, then map that name in
+`config/gestures.yaml`. To add a new action type, add a handler in
+`ActionMapper` and (if continuous) list it in `CONTINUOUS_ACTIONS`.
+
+Per-hand detection is available as `gesture_recognizer.classify_hands(hands)`,
+which returns the pair `[left_gesture, right_gesture]` (a side with no hand is
+`None`, e.g. `["fist", "pointing"]` or `["fist", None]`). The preview banner
+shows it live as `L:… R:…`, and `-v` logs it each frame.
+
+Two-hand *combined* gestures are entries in the `_TWO_HAND_COMBOS` table in
+`gesture_recognizer.py`, keyed by `(left_hand_pose, right_hand_pose)` — add a
+row (symmetric or asymmetric), map the new name in `config/gestures.yaml`, and
+add a test with synthetic landmarks. They are dispatched by
+`ActionMapper.handle_two_hands()`; `zoom`/`volume` are distance-driven, anything
+else fires as a one-shot.
 
 ## License
 

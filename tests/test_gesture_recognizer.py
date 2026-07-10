@@ -90,3 +90,168 @@ def test_index_tip_position():
     x, y = gr.index_tip_position(lm)
     assert x == pytest.approx(0.30)
     assert y == pytest.approx(0.60)
+
+
+def pinch_pose() -> np.ndarray:
+    """A hand pinching: thumb tip resting on the index tip."""
+    lm = base_pose()
+    lm[gr.THUMB_TIP, :2] = lm[gr.INDEX_TIP, :2]
+    return lm
+
+
+def test_is_pinch():
+    assert gr.is_pinch(pinch_pose(), pinch_threshold=0.06)
+    assert not gr.is_pinch(base_pose(), pinch_threshold=0.06)
+
+
+def test_hands_distance():
+    a = base_pose()
+    b = base_pose()
+    a[gr.INDEX_TIP, :2] = [0.20, 0.50]
+    b[gr.INDEX_TIP, :2] = [0.50, 0.50]
+    assert gr.hands_distance(a, b) == pytest.approx(0.30)
+
+
+def victory_pose() -> np.ndarray:
+    lm = base_pose()
+    raise_finger(lm, "index")
+    raise_finger(lm, "middle")
+    return lm
+
+
+def open_palm_pose() -> np.ndarray:
+    lm = base_pose()
+    for name in ("index", "middle", "ring", "pinky"):
+        raise_finger(lm, name)
+    raise_thumb(lm)
+    return lm
+
+
+def test_classify_two_hands_pinch():
+    assert (
+        gr.classify_two_hands(
+            pinch_pose(), "Right", pinch_pose(), "Right", pinch_threshold=0.06
+        )
+        == "two_hand_pinch"
+    )
+
+
+def test_classify_two_hands_open():
+    assert (
+        gr.classify_two_hands(open_palm_pose(), "Right", open_palm_pose(), "Right")
+        == "two_hand_open"
+    )
+
+
+def test_classify_two_hands_fist():
+    assert (
+        gr.classify_two_hands(base_pose(), "Right", base_pose(), "Right")
+        == "two_hand_fist"
+    )
+
+
+def test_classify_two_hands_victory():
+    assert (
+        gr.classify_two_hands(victory_pose(), "Right", victory_pose(), "Right")
+        == "two_hand_victory"
+    )
+
+
+def test_classify_two_hands_mismatch_without_handedness_is_unknown():
+    # Different poses but no Left/Right split to orient them -> unknown.
+    assert (
+        gr.classify_two_hands(pinch_pose(), "Right", base_pose(), "Right")
+        == "unknown"
+    )
+
+
+# --- Asymmetric combos (a different pose per hand) ---------------------------
+# base_pose()'s thumb is Right-hand specific, so build poses whose thumb matches
+# the hand we label them with.
+
+
+def handed_fist(handedness: str) -> np.ndarray:
+    """A fist whose tucked thumb reads correctly for the given hand."""
+    lm = base_pose()
+    ip_x = lm[gr.THUMB_IP, 0]
+    lm[gr.THUMB_TIP, 0] = ip_x + 0.06 if handedness == "Right" else ip_x - 0.06
+    return lm
+
+
+def handed_pointing(handedness: str) -> np.ndarray:
+    lm = handed_fist(handedness)
+    raise_finger(lm, "index")
+    return lm
+
+
+def handed_open(handedness: str) -> np.ndarray:
+    lm = base_pose()
+    for name in ("index", "middle", "ring", "pinky"):
+        raise_finger(lm, name)
+    ip_x = lm[gr.THUMB_IP, 0]  # extended thumb points to the hand's outer side
+    lm[gr.THUMB_TIP, 0] = ip_x - 0.06 if handedness == "Right" else ip_x + 0.06
+    return lm
+
+
+def test_classify_two_hands_left_fist_right_point():
+    left, right = handed_fist("Left"), handed_pointing("Right")
+    assert (
+        gr.classify_two_hands(left, "Left", right, "Right")
+        == "left_fist_right_point"
+    )
+    # Hand order in the arguments must not matter.
+    assert (
+        gr.classify_two_hands(right, "Right", left, "Left")
+        == "left_fist_right_point"
+    )
+
+
+def test_classify_two_hands_left_point_right_fist():
+    left, right = handed_pointing("Left"), handed_fist("Right")
+    assert (
+        gr.classify_two_hands(left, "Left", right, "Right")
+        == "left_point_right_fist"
+    )
+
+
+def test_classify_two_hands_left_open_right_fist():
+    left, right = handed_open("Left"), handed_fist("Right")
+    assert (
+        gr.classify_two_hands(left, "Left", right, "Right")
+        == "left_open_right_fist"
+    )
+
+
+def test_asymmetric_requires_handedness_split():
+    # Two different poses both labelled the same hand can't be oriented.
+    left, right = handed_fist("Right"), handed_pointing("Right")
+    assert gr.classify_two_hands(left, "Right", right, "Right") == "unknown"
+
+
+# --- [left, right] per-hand form --------------------------------------------
+
+
+def test_classify_hands_pair():
+    left, right = handed_fist("Left"), handed_pointing("Right")
+    assert gr.classify_hands(
+        [(left, "Left"), (right, "Right")]
+    ) == ["fist", "pointing"]
+
+
+def test_classify_hands_order_independent():
+    # Result is oriented by handedness, not argument order.
+    left, right = handed_fist("Left"), handed_pointing("Right")
+    assert gr.classify_hands(
+        [(right, "Right"), (left, "Left")]
+    ) == ["fist", "pointing"]
+
+
+def test_classify_hands_single_hand_leaves_other_none():
+    assert gr.classify_hands([(handed_pointing("Right"), "Right")]) == [
+        None,
+        "pointing",
+    ]
+
+
+def test_classify_hands_empty():
+    assert gr.classify_hands([]) == [None, None]

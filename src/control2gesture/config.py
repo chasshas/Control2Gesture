@@ -15,13 +15,18 @@ class Settings:
     frame_width: int = 1280
     frame_height: int = 720
     flip_horizontal: bool = True
-    max_hands: int = 1
+    max_hands: int = 2
     detection_confidence: float = 0.7
     tracking_confidence: float = 0.6
     cursor_smoothing: float = 0.5
     cursor_margin: float = 0.15
     pinch_threshold: float = 0.06
     stable_frames: int = 3
+    # Distance-driven two-hand gestures (zoom, volume): how much the inter-hand
+    # distance must change (in normalized units) to emit one step, and how many
+    # key presses each step sends.
+    two_hand_deadzone: float = 0.03
+    two_hand_step: int = 1
     show_window: bool = True
 
 

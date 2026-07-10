@@ -22,13 +22,8 @@ DEFAULT_CONFIG = Path(__file__).resolve().parents[2] / "config" / "gestures.yaml
 _CONNECTIONS = mp.solutions.hands.HAND_CONNECTIONS
 
 
-def _draw_overlay(
-    frame: np.ndarray,
-    hand: HandResult,
-    gesture: str,
-    action: str,
-) -> None:
-    """Draw landmarks, connections, and a status banner on the BGR frame."""
+def _draw_hand(frame: np.ndarray, hand: HandResult) -> None:
+    """Draw one hand's landmarks and connections on the BGR frame."""
     h, w = frame.shape[:2]
     pts = [(int(x * w), int(y * h)) for x, y, _ in hand.landmarks]
 
@@ -37,10 +32,27 @@ def _draw_overlay(
     for px, py in pts:
         cv2.circle(frame, (px, py), 4, (0, 0, 255), -1)
 
+
+def _draw_banner(
+    frame: np.ndarray,
+    gesture: str,
+    action: str,
+    hands_pair: list[str | None] | None = None,
+) -> None:
+    """Draw the gesture/action status banner across the top of the frame.
+
+    ``hands_pair`` is the ``[left, right]`` per-hand detection; when given it is
+    shown alongside the combined gesture/action.
+    """
+    w = frame.shape[1]
     cv2.rectangle(frame, (0, 0), (w, 40), (30, 30, 30), -1)
+    text = f"gesture: {gesture}   action: {action}"
+    if hands_pair is not None:
+        left, right = hands_pair
+        text = f"L:{left or '-'}  R:{right or '-'}   {text}"
     cv2.putText(
         frame,
-        f"gesture: {gesture}   action: {action}",
+        text,
         (10, 28),
         cv2.FONT_HERSHEY_SIMPLEX,
         0.7,
@@ -81,7 +93,29 @@ def run(config: Config) -> None:
                 rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                 hands = tracker.process(rgb)
 
-                if hands:
+                # Per-hand detection as [left_gesture, right_gesture].
+                hands_pair = gr.classify_hands(
+                    [(h.landmarks, h.handedness) for h in hands], s.pinch_threshold
+                )
+                log.debug("hands: %s", hands_pair)
+
+                if len(hands) >= 2:
+                    # Two hands: recognize a combined gesture (e.g. zoom) from
+                    # the pair and drive it with the inter-hand distance.
+                    a, b = hands[0], hands[1]
+                    gesture = gr.classify_two_hands(
+                        a.landmarks, a.handedness,
+                        b.landmarks, b.handedness,
+                        s.pinch_threshold,
+                    )
+                    distance = gr.hands_distance(a.landmarks, b.landmarks)
+                    mapper.handle_two_hands(gesture, distance)
+                    action = config.action_for(gesture).get("action", "none")
+                    if s.show_window:
+                        _draw_hand(frame, a)
+                        _draw_hand(frame, b)
+                        _draw_banner(frame, gesture, action, hands_pair)
+                elif hands:
                     hand = hands[0]
                     gesture = gr.classify(
                         hand.landmarks, hand.handedness, s.pinch_threshold
@@ -90,7 +124,8 @@ def run(config: Config) -> None:
                     mapper.handle(gesture, cursor_xy)
                     action = config.action_for(gesture).get("action", "none")
                     if s.show_window:
-                        _draw_overlay(frame, hand, gesture, action)
+                        _draw_hand(frame, hand)
+                        _draw_banner(frame, gesture, action, hands_pair)
                 else:
                     mapper.reset()
 
