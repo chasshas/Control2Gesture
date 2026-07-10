@@ -5,7 +5,7 @@
 # listed here (or mapped to `none`) is detected but does nothing.
 #
 # Recognized gesture names (see src/control2gesture/gesture_recognizer.py):
-#   fist, open_palm, pointing, victory, thumbs_up, pinch, unknown
+#   fist, open_palm, pointing, victory, three, thumbs_up, pinch, unknown
 #
 # Action types:
 #   none         - do nothing
@@ -50,6 +50,9 @@ gestures:
     action: right_click
   thumbs_up:
     action: scroll_up
+    amount: 3
+  three:
+    action: scroll_down
     amount: 3
   open_palm:
     action: none

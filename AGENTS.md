@@ -20,6 +20,9 @@ without a camera or a display.
 ## Environment
 
 - Use **conda**: `conda env create -f environment.yml && conda activate control2gesture`.
+- Then install the package: `pip install -e .` (required once per environment —
+  the `src/` layout means `python -m control2gesture` fails with
+  `No module named control2gesture` until it's installed).
 - Python is pinned to **3.11** (MediaPipe supports 3.9–3.12).
 - If you change a dependency, update **both** `environment.yml` and
   `requirements.txt`.

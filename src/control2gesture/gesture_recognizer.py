@@ -60,8 +60,8 @@ def classify(
 ) -> str:
     """Classify a hand pose into a named gesture.
 
-    Returns one of: pinch, fist, open_palm, pointing, victory, thumbs_up,
-    unknown.
+    Returns one of: pinch, fist, open_palm, pointing, victory, three,
+    thumbs_up, unknown.
     """
     # Pinch takes priority: thumb and index tips touching is unambiguous and
     # overlaps with several finger patterns.
@@ -84,6 +84,8 @@ def classify(
         return "pointing"
     if index and middle and not any((ring, pinky)):
         return "victory"
+    if index and middle and ring and not any((thumb, pinky)):
+        return "three"
     if count == 5:
         return "open_palm"
     return "unknown"

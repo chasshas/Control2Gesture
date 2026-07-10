@@ -33,6 +33,7 @@ webcam ─▶ HandTracker ─▶ gesture_recognizer ─▶ ActionMapper ─▶ C
 | `pinch`      | thumb + index tips touching | left click    |
 | `victory`    | index + middle (peace sign) | right click   |
 | `thumbs_up`  | thumb only                  | scroll up     |
+| `three`      | index + middle + ring       | scroll down   |
 | `fist`       | closed hand                 | none          |
 | `open_palm`  | all fingers spread          | none          |
 
@@ -44,9 +45,17 @@ Edit `config/gestures.yaml` to remap any gesture to any action.
 # Create and activate the environment
 conda env create -f environment.yml
 conda activate control2gesture
+
+# Install this package into the env (required, once per environment).
+# Editable (-e) means code edits take effect without reinstalling.
+pip install -e .
 ```
 
-> Prefer pip? `pip install -r requirements.txt` also works.
+The `pip install -e .` step is required because of the `src/` layout — without
+it `python -m control2gesture` reports `No module named control2gesture`. Rerun
+it only if you recreate the environment.
+
+> Prefer pip-only? `pip install -r requirements.txt && pip install -e .` also works.
 
 ### macOS permissions
 

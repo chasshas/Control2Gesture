@@ -5,7 +5,7 @@ before making changes.
 
 Quick reference:
 
-- **Setup:** `conda env create -f environment.yml && conda activate control2gesture`
+- **Setup:** `conda env create -f environment.yml && conda activate control2gesture && pip install -e .`
 - **Run:** `python -m control2gesture`
 - **Test:** `pytest` (pure logic only; no camera/display required)
 - **Architecture:** `main → hand_tracker → gesture_recognizer → action_mapper → controller`.

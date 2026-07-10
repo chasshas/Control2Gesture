@@ -56,6 +56,14 @@ def test_victory():
     assert gr.classify(lm, "Right") == "victory"
 
 
+def test_three():
+    lm = base_pose()
+    raise_finger(lm, "index")
+    raise_finger(lm, "middle")
+    raise_finger(lm, "ring")
+    assert gr.classify(lm, "Right") == "three"
+
+
 def test_thumbs_up():
     lm = base_pose()
     raise_thumb(lm)
