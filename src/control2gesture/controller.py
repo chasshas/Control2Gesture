@@ -20,7 +20,7 @@ class Controller:
     def __init__(
         self,
         smoothing: float = 0.5,
-        margin: float = 0.15,
+        sensitivity: float = 3.0,
         screen_size: tuple[int, int] | None = None,
     ) -> None:
         # Disable the fail-safe: moving into a screen corner should not raise.
@@ -30,25 +30,44 @@ class Controller:
 
         self.screen_w, self.screen_h = screen_size or pyautogui.size()
         self.smoothing = max(0.0, min(0.95, smoothing))
-        self.margin = max(0.0, min(0.4, margin))
+        self.sensitivity = max(0.0, sensitivity)
         self._prev_x, self._prev_y = pyautogui.position()
+        # Smoothed fingertip position (normalized) from the last frame; None
+        # means "no baseline yet" so the next call seeds it instead of moving.
+        self._smoothed_finger: tuple[float, float] | None = None
 
-    def _remap(self, value: float) -> float:
-        """Map a normalized coord through the active region [margin, 1-margin]."""
-        span = 1.0 - 2 * self.margin
-        if span <= 0:
-            return value
-        clamped = min(max(value, self.margin), 1.0 - self.margin)
-        return (clamped - self.margin) / span
+    def reset_cursor_origin(self) -> None:
+        """Drop the fingertip baseline so the next move_cursor starts fresh.
+
+        Without this, resuming the pointing gesture after doing something
+        else (or after the hand briefly left frame) would read as one huge
+        jump, since move_cursor only tracks frame-to-frame deltas.
+        """
+        self._smoothed_finger = None
 
     def move_cursor(self, nx: float, ny: float) -> None:
-        """Move the cursor from normalized fingertip coords (0..1)."""
-        target_x = self._remap(nx) * self.screen_w
-        target_y = self._remap(ny) * self.screen_h
+        """Move the cursor by the fingertip's frame-to-frame delta.
 
+        ``nx``/``ny`` are normalized (0..1) fingertip coords. Movement is
+        relative (joystick-style): the cursor moves by ``sensitivity`` times
+        the change in (smoothed) fingertip position, rather than mapping the
+        fingertip to an absolute screen position.
+        """
         alpha = 1.0 - self.smoothing
-        x = self._prev_x + (target_x - self._prev_x) * alpha
-        y = self._prev_y + (target_y - self._prev_y) * alpha
+        if self._smoothed_finger is None:
+            self._smoothed_finger = (nx, ny)
+            return
+
+        prev_snx, prev_sny = self._smoothed_finger
+        snx = prev_snx + (nx - prev_snx) * alpha
+        sny = prev_sny + (ny - prev_sny) * alpha
+        self._smoothed_finger = (snx, sny)
+
+        dx = (snx - prev_snx) * self.sensitivity * self.screen_w
+        dy = (sny - prev_sny) * self.sensitivity * self.screen_h
+
+        x = min(max(self._prev_x + dx, 0), self.screen_w - 1)
+        y = min(max(self._prev_y + dy, 0), self.screen_h - 1)
 
         pyautogui.moveTo(x, y)
         self._prev_x, self._prev_y = x, y

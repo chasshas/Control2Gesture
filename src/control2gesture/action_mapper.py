@@ -49,6 +49,7 @@ class ActionMapper:
         self._active = None
         self._fired_oneshot = False
         self._prev_distance = None
+        self.controller.reset_cursor_origin()
 
     def _stabilize(self, pair: GesturePair) -> bool:
         """Advance the debounce machine; return True once ``pair`` is stable.
@@ -70,6 +71,9 @@ class ActionMapper:
             self._active = pair
             self._fired_oneshot = False
             self._prev_distance = None
+            # New gesture pair: drop any move_cursor baseline so resuming
+            # pointing elsewhere doesn't read as one big relative jump.
+            self.controller.reset_cursor_origin()
         return True
 
     def handle(

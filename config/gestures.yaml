@@ -45,8 +45,9 @@ settings:
 
   # Cursor control.
   cursor_smoothing: 0.5          # 0 = raw/jittery, ~0.9 = very smooth/laggy
-  cursor_margin: 0.15            # fraction of frame edges ignored, so screen
-                                 # corners are reachable without maxing out the hand
+  cursor_sensitivity: 2.0        # relative move_cursor gain: how many screen-widths
+                                  # the cursor travels per full-frame fingertip swipe;
+                                  # higher = faster cursor movement per hand motion
   pinch_threshold: 0.06          # normalized thumb-index distance to count as a pinch
 
   # A gesture must persist this many consecutive frames before a one-shot

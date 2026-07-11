@@ -122,8 +122,8 @@ Press **`q`** in the window (or `Ctrl+C` in the terminal) to quit.
 `config/gestures.yaml` has two sections:
 
 - **`settings`** — camera index/resolution, MediaPipe confidences, cursor
-  smoothing/margin, pinch threshold, and `stable_frames` (how many frames a
-  gesture must persist before a one-shot action fires).
+  smoothing/sensitivity, pinch threshold, and `stable_frames` (how many frames
+  a gesture must persist before a one-shot action fires).
 - **`gestures`** — a list of entries, each keyed by a `[left, right]` pose pair
   (`null` for an empty side) and mapped to an action. Action types:
   `none`, `move_cursor`, `left_click`, `right_click`, `double_click`,

@@ -22,7 +22,7 @@ class Settings:
     detection_confidence: float = 0.7
     tracking_confidence: float = 0.6
     cursor_smoothing: float = 0.5
-    cursor_margin: float = 0.15
+    cursor_sensitivity: float = 3.0
     pinch_threshold: float = 0.06
     stable_frames: int = 3
     # Distance-driven two-hand gestures (zoom, volume): how much the inter-hand

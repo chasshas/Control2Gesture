@@ -67,7 +67,7 @@ def run(config: Config) -> None:
     if not cap.isOpened():
         raise RuntimeError(f"Could not open camera index {s.camera_index}")
 
-    controller = Controller(smoothing=s.cursor_smoothing, margin=s.cursor_margin)
+    controller = Controller(smoothing=s.cursor_smoothing, sensitivity=s.cursor_sensitivity)
     mapper = ActionMapper(config, controller)
 
     log.info("Starting. Press 'q' in the window (or Ctrl+C) to quit.")
