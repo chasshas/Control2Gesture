@@ -53,6 +53,43 @@ def _pinch_distance(landmarks: np.ndarray) -> float:
     return float(np.linalg.norm(landmarks[THUMB_TIP, :2] - landmarks[INDEX_TIP, :2]))
 
 
+def _thumb_points_out(landmarks: np.ndarray, handedness: str) -> bool:
+    """True when the thumb is extended away from the palm (out to the side or up).
+
+    Combines the horizontal test used elsewhere with a vertical one so a thumb
+    raised straight up (a thumbs-up) still counts even when its tip is roughly
+    level with the IP joint horizontally.
+    """
+    tip = landmarks[THUMB_TIP]
+    ip = landmarks[THUMB_IP]
+    if handedness == "Right":
+        horizontal = tip[0] < ip[0]
+    else:
+        horizontal = tip[0] > ip[0]
+    vertical = tip[1] < ip[1]  # tip above the IP joint (smaller y)
+    return bool(horizontal or vertical)
+
+
+def _thumb_clear_of_folded_fingers(
+    landmarks: np.ndarray, min_clearance: float = 0.10
+) -> bool:
+    """True when the thumb tip is held well clear of the folded fingers.
+
+    This is what separates a thumbs-up from a fist: in a fist the thumb wraps
+    across the folded fingers, so its tip lands close to the index/middle
+    fingertips (which is also why a fist can trip the pinch check). A thumbs-up
+    holds the thumb out, away from them.
+    """
+    tip = landmarks[THUMB_TIP, :2]
+    index_tip = landmarks[FINGER_TIPS["index"], :2]
+    middle_tip = landmarks[FINGER_TIPS["middle"], :2]
+    nearest = min(
+        float(np.linalg.norm(tip - index_tip)),
+        float(np.linalg.norm(tip - middle_tip)),
+    )
+    return nearest > min_clearance
+
+
 def is_pinch(landmarks: np.ndarray, pinch_threshold: float = 0.06) -> bool:
     """True when the thumb and index tips are close enough to count as a pinch."""
     return _pinch_distance(landmarks) < pinch_threshold
@@ -68,23 +105,33 @@ def classify(
     Returns one of: pinch, fist, open_palm, pointing, victory, three,
     thumbs_up, unknown.
     """
-    # Pinch takes priority: thumb and index tips touching is unambiguous and
-    # overlaps with several finger patterns.
-    if is_pinch(landmarks, pinch_threshold):
-        return "pinch"
-
     up = _fingers_up(landmarks, handedness)
     thumb = up["thumb"]
     index = up["index"]
     middle = up["middle"]
     ring = up["ring"]
     pinky = up["pinky"]
-    count = sum((thumb, index, middle, ring, pinky))
+    fingers_folded = not any((index, middle, ring, pinky))
 
-    if count == 0:
+    # Closed hand (all four fingers folded). A fist is easily confused with a
+    # thumbs-up (the wrapped thumb reads as "extended") and with a pinch (that
+    # same thumb sits right next to the index tip). Resolve the closed hand
+    # here, before the pinch check, so a fist can no longer trip either: it is
+    # a thumbs-up only when the thumb is both pointing out and held clear of the
+    # folded fingers; otherwise it is a fist.
+    if fingers_folded:
+        if _thumb_points_out(landmarks, handedness) and _thumb_clear_of_folded_fingers(
+            landmarks
+        ):
+            return "thumbs_up"
         return "fist"
-    if thumb and not any((index, middle, ring, pinky)):
-        return "thumbs_up"
+
+    # Pinch: thumb and index tips touching while the hand is otherwise open.
+    # Only reachable when not a closed fist, so a wrapped thumb no longer counts.
+    if is_pinch(landmarks, pinch_threshold):
+        return "pinch"
+
+    count = sum((thumb, index, middle, ring, pinky))
     if index and not any((thumb, middle, ring, pinky)):
         return "pointing"
     if index and middle and not any((ring, pinky)):

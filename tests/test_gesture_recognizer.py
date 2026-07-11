@@ -78,11 +78,19 @@ def test_open_palm():
     assert gr.classify(lm, "Right") == "open_palm"
 
 
-def test_pinch_takes_priority():
+def test_pinch():
+    assert gr.classify(pinch_pose(), "Right", pinch_threshold=0.06) == "pinch"
+
+
+def test_fist_with_wrapped_thumb_is_not_thumbs_up_or_pinch():
+    """Regression: a real fist wraps the thumb across the folded fingers, so its
+    tip reads as "extended" and lands next to the index tip. It must still be a
+    fist, not thumbs_up or pinch."""
     lm = base_pose()
-    # Bring thumb tip onto the index tip.
-    lm[gr.THUMB_TIP, :2] = lm[gr.INDEX_TIP, :2]
-    assert gr.classify(lm, "Right", pinch_threshold=0.06) == "pinch"
+    # Thumb wrapped inward (reads as extended) and close to the index tip.
+    lm[gr.THUMB_TIP, :2] = [0.34, 0.58]  # index tip is [0.30, 0.60]
+    assert gr.is_pinch(lm, 0.06)  # tips are close enough to look like a pinch...
+    assert gr.classify(lm, "Right") == "fist"  # ...but it's still a fist
 
 
 def test_index_tip_position():
@@ -93,8 +101,11 @@ def test_index_tip_position():
 
 
 def pinch_pose() -> np.ndarray:
-    """A hand pinching: thumb tip resting on the index tip."""
+    """A hand pinching: thumb tip resting on the index tip while the other
+    fingers stay extended (an open hand, not a closed fist)."""
     lm = base_pose()
+    for name in ("middle", "ring", "pinky"):
+        raise_finger(lm, name)
     lm[gr.THUMB_TIP, :2] = lm[gr.INDEX_TIP, :2]
     return lm
 
