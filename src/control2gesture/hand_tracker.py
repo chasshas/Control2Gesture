@@ -27,11 +27,13 @@ class HandTracker:
         max_hands: int = 1,
         detection_confidence: float = 0.7,
         tracking_confidence: float = 0.6,
+        model_complexity: int = 0,
     ) -> None:
         self._mp_hands = mp.solutions.hands
         self._hands = self._mp_hands.Hands(
             static_image_mode=False,
             max_num_hands=max_hands,
+            model_complexity=model_complexity,
             min_detection_confidence=detection_confidence,
             min_tracking_confidence=tracking_confidence,
         )

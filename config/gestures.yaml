@@ -29,8 +29,17 @@ settings:
   camera_index: 0
   frame_width: 1280
   frame_height: 720
+  camera_fourcc: MJPG            # most USB webcams need this to hit 30fps at
+                                  # 720p; without it many fall back to a slow
+                                  # uncompressed format. Set to "" to leave the
+                                  # camera's default alone.
   flip_horizontal: true          # mirror view so movement feels natural
   max_hands: 2                   # 2 enables two-hand gestures (e.g. zoom)
+  model_complexity: 0            # 0=lite (fast, recommended for real-time),
+                                  # 1=full (more accurate, noticeably slower on
+                                  # CPU -- MediaPipe Hands has no GPU/CUDA path
+                                  # on desktop Linux, so a discrete GPU doesn't
+                                  # speed this up)
   detection_confidence: 0.7
   tracking_confidence: 0.6
 

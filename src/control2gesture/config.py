@@ -15,8 +15,10 @@ class Settings:
     camera_index: int = 0
     frame_width: int = 1280
     frame_height: int = 720
+    camera_fourcc: str = "MJPG"    # most webcams need this to hit 30fps at 720p
     flip_horizontal: bool = True
     max_hands: int = 2
+    model_complexity: int = 0      # 0=lite (fast), 1=full (more accurate, slower)
     detection_confidence: float = 0.7
     tracking_confidence: float = 0.6
     cursor_smoothing: float = 0.5

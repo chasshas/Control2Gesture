@@ -59,8 +59,11 @@ def run(config: Config) -> None:
     s = config.settings
 
     cap = cv2.VideoCapture(s.camera_index)
+    if s.camera_fourcc:
+        cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*s.camera_fourcc))
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, s.frame_width)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, s.frame_height)
+    cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
     if not cap.isOpened():
         raise RuntimeError(f"Could not open camera index {s.camera_index}")
 
@@ -73,6 +76,7 @@ def run(config: Config) -> None:
             max_hands=s.max_hands,
             detection_confidence=s.detection_confidence,
             tracking_confidence=s.tracking_confidence,
+            model_complexity=s.model_complexity,
         ) as tracker:
             while True:
                 ok, frame = cap.read()
