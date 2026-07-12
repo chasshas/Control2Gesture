@@ -24,6 +24,7 @@ class Settings:
     cursor_smoothing: float = 0.5
     cursor_sensitivity: float = 3.0
     pinch_threshold: float = 0.06
+    fist_fold_margin: float = 0.03
     stable_frames: int = 3
     # Distance-driven two-hand gestures (zoom, volume): how much the inter-hand
     # distance must change (in normalized units) to emit one step, and how many

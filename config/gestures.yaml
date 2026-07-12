@@ -8,7 +8,7 @@
 # is detected but does nothing. Left/Right follow the on-screen handedness.
 #
 # Recognized single-hand poses (see src/control2gesture/gesture_recognizer.py):
-#   fist, open_palm, pointing, victory, three, thumbs_up, pinch
+#   fist, open_palm, pointing, victory, three, four, thumbs_up, pinch
 #
 # Action types:
 #   none         - do nothing
@@ -24,6 +24,10 @@
 #                  move apart/together (media keys; best-effort on macOS)
 #   key          - one-shot; press keys in sequence (`keys`)
 #   hotkey       - one-shot; press keys together as a chord (`keys`)
+#   toggle_control - one-shot; turns every other gesture action on/off. While
+#                  off, gestures are still recognized (so this one can turn
+#                  control back on) but nothing else fires. Also bound to the
+#                  space key in the preview window.
 
 settings:
   camera_index: 0
@@ -48,7 +52,10 @@ settings:
   cursor_sensitivity: 2.0        # relative move_cursor gain: how many screen-widths
                                   # the cursor travels per full-frame fingertip swipe;
                                   # higher = faster cursor movement per hand motion
-  pinch_threshold: 0.06          # normalized thumb-index distance to count as a pinch
+  pinch_threshold: 0.09          # normalized thumb-index distance to count as a pinch
+  fist_fold_margin: 0.05         # slack added to the finger-folded check; higher
+                                  # makes fist require a clearer close, so a pinch's
+                                  # naturally curled other fingers aren't misread as fist
 
   # A gesture must persist this many consecutive frames before a one-shot
   # action fires. Prevents accidental double triggers.
@@ -62,6 +69,10 @@ settings:
   show_window: true              # show the annotated camera preview
 
 gestures:
+  # --- Control on/off (also bound to the space key) ---
+  - gesture: [four, four]        # both hands showing four fingers
+    action: toggle_control
+
   # --- Single hand (right hand up; left side null) ---
   - gesture: [null, pointing]
     action: move_cursor

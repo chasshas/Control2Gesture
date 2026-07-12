@@ -1,0 +1,123 @@
+"""Tests for ActionMapper dispatch, debounce, and the enable/disable toggle."""
+
+import textwrap
+
+from control2gesture.action_mapper import ActionMapper
+from control2gesture.config import load_config
+
+
+def write_config(tmp_path, body: str):
+    path = tmp_path / "gestures.yaml"
+    path.write_text(textwrap.dedent(body), encoding="utf-8")
+    return load_config(path)
+
+
+class FakeController:
+    """Records calls instead of touching the real mouse/keyboard."""
+
+    def __init__(self):
+        self.calls: list[tuple] = []
+
+    def reset_cursor_origin(self):
+        self.calls.append(("reset_cursor_origin",))
+
+    def left_click(self):
+        self.calls.append(("left_click",))
+
+    def right_click(self):
+        self.calls.append(("right_click",))
+
+    def double_click(self):
+        self.calls.append(("double_click",))
+
+    def move_cursor(self, nx, ny):
+        self.calls.append(("move_cursor", nx, ny))
+
+    def scroll(self, amount):
+        self.calls.append(("scroll", amount))
+
+    def zoom(self, steps):
+        self.calls.append(("zoom", steps))
+
+    def change_volume(self, steps):
+        self.calls.append(("change_volume", steps))
+
+    def press_keys(self, keys):
+        self.calls.append(("press_keys", keys))
+
+    def hotkey(self, keys):
+        self.calls.append(("hotkey", keys))
+
+
+def build_mapper(tmp_path):
+    config = write_config(
+        tmp_path,
+        """
+        settings:
+          stable_frames: 1
+        gestures:
+          - gesture: [four, four]
+            action: toggle_control
+          - gesture: [null, pinch]
+            action: left_click
+        """,
+    )
+    controller = FakeController()
+    return ActionMapper(config, controller), controller
+
+
+def clicks(controller):
+    return [c for c in controller.calls if c[0] == "left_click"]
+
+
+def test_enabled_by_default(tmp_path):
+    mapper, _ = build_mapper(tmp_path)
+    assert mapper.enabled is True
+
+
+def test_toggle_gesture_disables_and_reenables(tmp_path):
+    mapper, controller = build_mapper(tmp_path)
+
+    mapper.handle([None, "pinch"])
+    assert len(clicks(controller)) == 1
+
+    mapper.handle(["four", "four"])
+    assert mapper.enabled is False
+
+    # A gesture that would normally click is suppressed while disabled.
+    mapper.reset()
+    mapper.handle([None, "pinch"])
+    assert len(clicks(controller)) == 1
+
+    mapper.reset()
+    mapper.handle(["four", "four"])
+    assert mapper.enabled is True
+
+    mapper.reset()
+    mapper.handle([None, "pinch"])
+    assert len(clicks(controller)) == 2
+
+
+def test_toggle_enabled_matches_keyboard_shortcut_path(tmp_path):
+    mapper, controller = build_mapper(tmp_path)
+
+    assert mapper.toggle_enabled() is False
+    assert mapper.enabled is False
+
+    mapper.handle([None, "pinch"])
+    assert clicks(controller) == []
+
+    assert mapper.toggle_enabled() is True
+    mapper.handle([None, "pinch"])
+    assert len(clicks(controller)) == 1
+
+
+def test_toggle_gesture_is_one_shot(tmp_path):
+    mapper, _ = build_mapper(tmp_path)
+
+    mapper.handle(["four", "four"])
+    assert mapper.enabled is False
+    # Holding the same pair across more frames must not flip it back.
+    mapper.handle(["four", "four"])
+    mapper.handle(["four", "four"])
+    assert mapper.enabled is False

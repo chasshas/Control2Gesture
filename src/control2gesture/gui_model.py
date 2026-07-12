@@ -29,6 +29,7 @@ POSES: list[str] = [
     "pointing",
     "victory",
     "three",
+    "four",
     "thumbs_up",
     "pinch",
 ]
@@ -46,6 +47,7 @@ ACTIONS: list[str] = [
     "volume",
     "key",
     "hotkey",
+    "toggle_control",
 ]
 
 # Actions that carry an integer ``amount`` (scroll speed).

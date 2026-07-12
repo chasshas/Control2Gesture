@@ -7,6 +7,11 @@ Actions come in two flavours:
 * **One-shot** (clicks, key presses) fire exactly once, when a gesture becomes
   stable, and will not fire again until a different gesture is seen in between.
 
+`toggle_control` is a special one-shot: it flips :attr:`ActionMapper.enabled`
+instead of calling the controller, and it is the one action that still fires
+while control is disabled (so the same gesture/keyboard shortcut turns it back
+on). Every other action is suppressed while disabled.
+
 Every frame the recognizer produces one ``[left, right]`` gesture pair, and
 :meth:`ActionMapper.handle` maps that pair to an action. Whether an action is
 continuous, distance-driven, or one-shot is decided by the action name, not by
@@ -29,12 +34,20 @@ CONTINUOUS_ACTIONS = {"move_cursor", "scroll_up", "scroll_down"}
 # Two-hand actions driven by the change in inter-hand distance (apart/together).
 TWO_HAND_DISTANCE_ACTIONS = {"zoom", "volume"}
 
+# One-shot action that flips `ActionMapper.enabled` instead of touching the
+# controller; it always dispatches, even while control is disabled, so it can
+# turn itself back on.
+TOGGLE_ACTION = "toggle_control"
+
 
 class ActionMapper:
     def __init__(self, config: Config, controller: Controller) -> None:
         self.config = config
         self.controller = controller
         self.stable_frames = config.settings.stable_frames
+        # While False, every action except `toggle_control` is suppressed;
+        # gestures/keys are still recognized so control can be turned back on.
+        self.enabled = True
 
         self._candidate: GesturePair | None = None  # pair currently stabilizing
         self._stable_count = 0
@@ -50,6 +63,17 @@ class ActionMapper:
         self._fired_oneshot = False
         self._prev_distance = None
         self.controller.reset_cursor_origin()
+
+    def toggle_enabled(self) -> bool:
+        """Flip whether gesture-driven control is active; return the new state.
+
+        Called both from the `toggle_control` gesture and the keyboard
+        shortcut, so the two stay in sync on one flag.
+        """
+        self.enabled = not self.enabled
+        log.info("Gesture control %s", "enabled" if self.enabled else "disabled")
+        self.controller.reset_cursor_origin()
+        return self.enabled
 
     def _stabilize(self, pair: GesturePair) -> bool:
         """Advance the debounce machine; return True once ``pair`` is stable.
@@ -92,6 +116,10 @@ class ActionMapper:
           ``distance`` (inter-hand spread) into signed steps; they no-op until a
           second hand supplies a ``distance``.
         * **One-shot** (clicks, keys, hotkeys) fire exactly once per stable pair.
+
+        `toggle_control` always dispatches, even while control is disabled, so
+        the same gesture can turn it back on; every other action is
+        suppressed while :attr:`enabled` is False.
         """
         key: GesturePair = (pair[0], pair[1])
         if not self._stabilize(key):
@@ -100,6 +128,15 @@ class ActionMapper:
         spec = self.config.action_for(pair)
         action = spec.get("action", "none")
         if action == "none":
+            return
+
+        if action == TOGGLE_ACTION:
+            if not self._fired_oneshot:
+                self.toggle_enabled()
+                self._fired_oneshot = True
+            return
+
+        if not self.enabled:
             return
 
         if action in CONTINUOUS_ACTIONS:

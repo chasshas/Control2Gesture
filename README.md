@@ -31,7 +31,17 @@ webcam ─▶ HandTracker ─▶ gesture_recognizer ─▶ ActionMapper ─▶ C
 Every gesture is a `[left, right]` pair of hand poses. `null` means "no hand on
 that side", so a single-hand gesture uses `null` for the empty side. Left/Right
 follow the on-screen (mirrored) handedness. Recognized poses: `fist`,
-`open_palm`, `pointing`, `victory`, `three`, `thumbs_up`, `pinch`.
+`open_palm`, `pointing`, `victory`, `three`, `four`, `thumbs_up`, `pinch`.
+
+**Control on/off:**
+
+| Pair               | Pose                    | Action                           |
+|---------------------|-------------------------|-----------------------------------|
+| `[four, four]`      | both hands, four fingers | toggle gesture control on/off    |
+
+While off, every other gesture/action is suppressed (recognition keeps
+running so this gesture — and the **space** key in the preview window — can
+turn control back on). The banner shows `control: ON` / `control: OFF`.
 
 **Single hand** — right hand up (`[null, <pose>]`):
 
@@ -111,7 +121,8 @@ python -m control2gesture -v           # verbose logging
 ```
 
 A preview window opens with your tracked hand and the current gesture/action.
-Press **`q`** in the window (or `Ctrl+C` in the terminal) to quit.
+Press **`q`** in the window (or `Ctrl+C` in the terminal) to quit, and
+**space** (or the `[four, four]` gesture) to toggle gesture control on/off.
 
 > **Safety:** the app moves your real cursor and presses real keys. Test with a
 > throwaway window focused. `pyautogui`'s fail-safe is disabled for smooth
@@ -128,7 +139,8 @@ Press **`q`** in the window (or `Ctrl+C` in the terminal) to quit.
   (`null` for an empty side) and mapped to an action. Action types:
   `none`, `move_cursor`, `left_click`, `right_click`, `double_click`,
   `scroll_up`, `scroll_down`, `zoom`/`volume` (two-hand), `key` (sequential),
-  `hotkey` (chord). The distance-driven two-hand actions are tuned by
+  `hotkey` (chord), `toggle_control` (turns every other action on/off; also
+  bound to the space key). The distance-driven two-hand actions are tuned by
   `max_hands`, `two_hand_deadzone` (how far the hands must move per step) and
   `two_hand_step`.
 
@@ -177,7 +189,7 @@ Control2Gesture/
 │   ├── action_mapper.py            # pair → action, with debounce
 │   ├── controller.py               # pyautogui mouse/keyboard
 │   └── config.py                   # YAML config loader
-├── tests/                          # test_gesture_recognizer.py, test_config.py
+├── tests/                          # test_gesture_recognizer.py, test_action_mapper.py, test_config.py, test_gui_model.py
 ├── environment.yml                 # conda environment
 ├── requirements.txt                # pip fallback
 ├── CLAUDE.md / AGENTS.md           # guidance for AI coding agents

@@ -64,6 +64,13 @@ def test_three():
     assert gr.classify(lm, "Right") == "three"
 
 
+def test_four():
+    lm = base_pose()
+    for name in ("index", "middle", "ring", "pinky"):
+        raise_finger(lm, name)
+    assert gr.classify(lm, "Right") == "four"
+
+
 def test_thumbs_up():
     lm = base_pose()
     raise_thumb(lm)
@@ -108,6 +115,17 @@ def pinch_pose() -> np.ndarray:
         raise_finger(lm, name)
     lm[gr.THUMB_TIP, :2] = lm[gr.INDEX_TIP, :2]
     return lm
+
+
+def test_pinch_with_mildly_curled_fingers_is_not_fist():
+    """Regression: pinching naturally curls the other fingers a little, putting
+    their tips just barely past the pip line rather than fully folded. That
+    shouldn't be read as a closed fist."""
+    lm = pinch_pose()
+    for name in ("middle", "ring", "pinky"):
+        pip_y = lm[gr.FINGER_PIPS[name], 1]
+        lm[gr.FINGER_TIPS[name], 1] = pip_y + 0.01  # just past the pip, barely folded
+    assert gr.classify(lm, "Right", fist_fold_margin=0.03) == "pinch"
 
 
 def test_is_pinch():

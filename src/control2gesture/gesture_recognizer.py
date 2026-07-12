@@ -24,18 +24,23 @@ FINGER_PIPS = {"index": 6, "middle": 10, "ring": 14, "pinky": 18}
 INDEX_TIP = 8
 
 
-def _fingers_up(landmarks: np.ndarray, handedness: str) -> dict[str, bool]:
+def _fingers_up(
+    landmarks: np.ndarray, handedness: str, fold_margin: float = 0.0
+) -> dict[str, bool]:
     """Return which fingers are extended.
 
     For index..pinky a finger is "up" when its tip is above (smaller y than)
-    its PIP joint. For the thumb we compare x against the IP joint, accounting
-    for left/right hand orientation.
+    its PIP joint, plus ``fold_margin`` of slack so a finger only counts as
+    folded once it is clearly below the joint (a finger merely curling toward
+    the thumb during a pinch shouldn't flip to "folded" and get read as a
+    fist). For the thumb we compare x against the IP joint, accounting for
+    left/right hand orientation.
     """
     up: dict[str, bool] = {}
     for name in ("index", "middle", "ring", "pinky"):
         tip_y = landmarks[FINGER_TIPS[name], 1]
         pip_y = landmarks[FINGER_PIPS[name], 1]
-        up[name] = tip_y < pip_y
+        up[name] = tip_y < pip_y + fold_margin
 
     # Thumb: extended when the tip is to the outer side of the IP joint.
     # In the mirrored frame a "Right" hand's thumb points left when extended.
@@ -99,13 +104,14 @@ def classify(
     landmarks: np.ndarray,
     handedness: str = "Right",
     pinch_threshold: float = 0.06,
+    fist_fold_margin: float = 0.03,
 ) -> str:
     """Classify a hand pose into a named gesture.
 
-    Returns one of: pinch, fist, open_palm, pointing, victory, three,
+    Returns one of: pinch, fist, open_palm, pointing, victory, three, four,
     thumbs_up, unknown.
     """
-    up = _fingers_up(landmarks, handedness)
+    up = _fingers_up(landmarks, handedness, fist_fold_margin)
     thumb = up["thumb"]
     index = up["index"]
     middle = up["middle"]
@@ -138,6 +144,8 @@ def classify(
         return "victory"
     if index and middle and ring and not any((thumb, pinky)):
         return "three"
+    if index and middle and ring and pinky and not thumb:
+        return "four"
     if count == 5:
         return "open_palm"
     return "unknown"
@@ -162,6 +170,7 @@ def hands_distance(landmarks_a: np.ndarray, landmarks_b: np.ndarray) -> float:
 def classify_hands(
     hands: list[tuple[np.ndarray, str]],
     pinch_threshold: float = 0.06,
+    fist_fold_margin: float = 0.03,
 ) -> list[str | None]:
     """Classify each detected hand and return ``[left_gesture, right_gesture]``.
 
@@ -179,5 +188,7 @@ def classify_hands(
     sides: dict[str, str | None] = {"Left": None, "Right": None}
     for landmarks, handedness in hands:
         if handedness in sides:
-            sides[handedness] = classify(landmarks, handedness, pinch_threshold)
+            sides[handedness] = classify(
+                landmarks, handedness, pinch_threshold, fist_fold_margin
+            )
     return [sides["Left"], sides["Right"]]

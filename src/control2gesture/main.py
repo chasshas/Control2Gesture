@@ -37,12 +37,14 @@ def _draw_banner(
     frame: np.ndarray,
     hands_pair: list[str | None],
     action: str,
+    enabled: bool,
 ) -> None:
-    """Draw the ``[left, right]`` gesture pair and its action across the top."""
+    """Draw the ``[left, right]`` gesture pair, its action, and on/off state."""
     w = frame.shape[1]
     cv2.rectangle(frame, (0, 0), (w, 40), (30, 30, 30), -1)
     left, right = hands_pair
-    text = f"L:{left or '-'}  R:{right or '-'}   action: {action}"
+    status = "ON" if enabled else "OFF (space or [four, four] to resume)"
+    text = f"L:{left or '-'}  R:{right or '-'}   action: {action}   control: {status}"
     cv2.putText(
         frame,
         text,
@@ -70,7 +72,10 @@ def run(config: Config) -> None:
     controller = Controller(smoothing=s.cursor_smoothing, sensitivity=s.cursor_sensitivity)
     mapper = ActionMapper(config, controller)
 
-    log.info("Starting. Press 'q' in the window (or Ctrl+C) to quit.")
+    log.info(
+        "Starting. Press 'q' (or Ctrl+C) to quit, space or [four, four] to "
+        "toggle gesture control on/off."
+    )
     try:
         with HandTracker(
             max_hands=s.max_hands,
@@ -92,7 +97,9 @@ def run(config: Config) -> None:
 
                 # The whole system speaks one [left, right] gesture pair.
                 hands_pair = gr.classify_hands(
-                    [(h.landmarks, h.handedness) for h in hands], s.pinch_threshold
+                    [(h.landmarks, h.handedness) for h in hands],
+                    s.pinch_threshold,
+                    s.fist_fold_margin,
                 )
                 log.debug("hands: %s", hands_pair)
 
@@ -110,14 +117,17 @@ def run(config: Config) -> None:
                     if s.show_window:
                         for hand in hands:
                             _draw_hand(frame, hand)
-                        _draw_banner(frame, hands_pair, action)
+                        _draw_banner(frame, hands_pair, action, mapper.enabled)
                 else:
                     mapper.reset()
 
                 if s.show_window:
                     cv2.imshow("Control2Gesture", frame)
-                    if cv2.waitKey(1) & 0xFF == ord("q"):
+                    key = cv2.waitKey(1) & 0xFF
+                    if key == ord("q"):
                         break
+                    if key == ord(" "):
+                        mapper.toggle_enabled()
     except KeyboardInterrupt:
         log.info("Interrupted.")
     finally:
