@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import numpy as np
 
-THUMB_TIP, THUMB_IP, THUMB_MCP = 4, 3, 2
+THUMB_TIP, THUMB_IP, THUMB_MCP, THUMB_CMC = 4, 3, 2, 1
 FINGER_TIPS = {"index": 8, "middle": 12, "ring": 16, "pinky": 20}
 FINGER_PIPS = {"index": 6, "middle": 10, "ring": 14, "pinky": 18}
 INDEX_TIP = 8
@@ -74,27 +74,31 @@ def _pinch_distance(landmarks: np.ndarray) -> float:
 
 def thumb_straightness(landmarks: np.ndarray) -> float:
     """How straight the thumb is, from -1 (bent sharply back on itself) to 1
-    (fully extended) -- the cosine of the angle at the thumb's IP joint.
+    (fully extended) -- the cosine of the angle spanning the thumb's MCP
+    joint: base direction (CMC->MCP) vs. overall reach (MCP->TIP).
 
-    This is what separates a thumbs-up from a fist: a tucked fist thumb bends
-    sharply at the IP joint to wrap over the folded fingers, while a
-    thumbs-up keeps the thumb's two segments roughly in line. A joint angle is
-    dimensionless, so unlike a distance-based test it needs no calibration
-    against hand size or camera distance, and unlike an axis-aligned
-    "above/beside the IP joint" test it doesn't depend on the hand being held
-    upright on screen -- both of which let a tucked fist thumb get misread as
-    extended in earlier versions of this check.
+    This is what separates a thumbs-up from a fist: tucking the thumb across
+    a fist is mostly a bend at the MCP joint (with the CMC joint rotating it
+    inward), while a thumbs-up keeps the thumb pointing on from its base
+    direction. An earlier version of this check measured only the angle at
+    the *IP* joint (MCP->IP vs IP->TIP) -- but the IP joint barely flexes for
+    many hands when making a fist (the curl happens further back, at MCP/CMC),
+    so that version read a real fist as nearly as "straight" as a genuine
+    thumbs-up. A joint angle is dimensionless, so unlike a distance-based test
+    it needs no calibration against hand size or camera distance, and unlike
+    an axis-aligned "above/beside the joint" test it doesn't depend on the
+    hand being held upright on screen.
     """
+    cmc = landmarks[THUMB_CMC, :2]
     mcp = landmarks[THUMB_MCP, :2]
-    ip = landmarks[THUMB_IP, :2]
     tip = landmarks[THUMB_TIP, :2]
-    proximal = ip - mcp
-    distal = tip - ip
-    proximal_len = float(np.linalg.norm(proximal))
-    distal_len = float(np.linalg.norm(distal))
-    if proximal_len < 1e-9 or distal_len < 1e-9:
+    base = mcp - cmc
+    reach = tip - mcp
+    base_len = float(np.linalg.norm(base))
+    reach_len = float(np.linalg.norm(reach))
+    if base_len < 1e-9 or reach_len < 1e-9:
         return 1.0
-    return float(np.dot(proximal, distal) / (proximal_len * distal_len))
+    return float(np.dot(base, reach) / (base_len * reach_len))
 
 
 def is_pinch(landmarks: np.ndarray, pinch_threshold: float = 0.06) -> bool:
