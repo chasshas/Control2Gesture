@@ -63,14 +63,13 @@ settings:
   fist_fold_margin: 0.05         # slack added to the finger-folded check; higher
                                   # makes fist require a clearer close, so a pinch's
                                   # naturally curled other fingers aren't misread as fist
-  thumb_clear_margin: 0.5        # how far the thumb tip must be from the folded index/
-                                  # middle tips to read a closed hand as thumbs_up instead
-                                  # of fist, as a multiple of the hand's own size (wrist to
-                                  # middle knuckle) rather than a fixed distance -- so the
-                                  # same value works whether the hand is close to or far
-                                  # from the camera. Raise it if fist is misread as
-                                  # thumbs_up (thumb not held out clearly enough yet);
-                                  # lower it if thumbs_up is misread as fist.
+  thumb_clear_margin: 1.5        # how far the thumb tip must reach from the wrist to read
+                                  # a closed hand as thumbs_up instead of fist, as a multiple
+                                  # of the hand's own size (wrist to middle knuckle) rather
+                                  # than a fixed distance -- so the same value works whether
+                                  # the hand is close to or far from the camera. Raise it if
+                                  # fist is misread as thumbs_up (thumb not held out clearly
+                                  # enough yet); lower it if thumbs_up is misread as fist.
 
   # Per-hand overrides: uncomment and set only the ones you need to tune
   # separately for that hand. Leave commented/absent to use the shared value
@@ -79,8 +78,8 @@ settings:
   # pinch_threshold_right: 0.09
   # fist_fold_margin_left: 0.05
   # fist_fold_margin_right: 0.05
-  # thumb_clear_margin_left: 0.5
-  # thumb_clear_margin_right: 0.5
+  # thumb_clear_margin_left: 1.5
+  # thumb_clear_margin_right: 1.5
 
   # A gesture must persist this many consecutive frames before a one-shot
   # action fires (prevents accidental double triggers from a single flickery

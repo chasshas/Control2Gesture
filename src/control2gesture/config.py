@@ -28,10 +28,12 @@ class Settings:
     # side can be finetuned independently instead of moving both hands at once.
     pinch_threshold: float = 0.06
     fist_fold_margin: float = 0.03
-    # A multiple of the hand's own size (see gesture_recognizer._hand_scale),
-    # not a fixed image-space distance -- so it doesn't need re-tuning as the
-    # hand moves closer to or farther from the camera.
-    thumb_clear_margin: float = 0.5
+    # How far the thumb must reach from the wrist (as a multiple of hand size,
+    # see gesture_recognizer._thumb_reach) to read a closed hand as thumbs_up
+    # rather than fist. A ratio of hand size, not a fixed image-space distance,
+    # so it doesn't need re-tuning as the hand moves closer to/farther from the
+    # camera.
+    thumb_clear_margin: float = 1.5
     pinch_threshold_left: float | None = None
     pinch_threshold_right: float | None = None
     fist_fold_margin_left: float | None = None

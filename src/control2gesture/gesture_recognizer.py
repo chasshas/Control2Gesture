@@ -87,43 +87,23 @@ def _pinch_distance(landmarks: np.ndarray) -> float:
     return float(np.linalg.norm(landmarks[THUMB_TIP, :2] - landmarks[INDEX_TIP, :2]))
 
 
-def _thumb_points_out(landmarks: np.ndarray, handedness: str) -> bool:
-    """True when the thumb is extended away from the palm (out to the side or up).
+def _thumb_reach(landmarks: np.ndarray) -> float:
+    """How far the thumb tip is from the wrist, in units of hand_scale.
 
-    Combines the horizontal test used elsewhere with a vertical one so a thumb
-    raised straight up (a thumbs-up) still counts even when its tip is roughly
-    level with the IP joint horizontally.
+    This is what separates a thumbs-up from a fist: in a fist the thumb curls
+    back in near the palm, while a thumbs-up reaches the thumb out away from
+    it. Measuring straight-line distance from a fixed anchor (the wrist)
+    rather than testing whether the tip is "above" or "to the side of" the IP
+    joint means the result doesn't depend on the hand being held upright on
+    screen: a tucked fist thumb curls *over* the folded fingers, so its tip
+    often still reads as "above the IP joint" under an axis-aligned test even
+    though the thumb itself is fully retracted -- that false positive is what
+    let a real fist get misread as thumbs_up. Reach from the wrist doesn't
+    have that failure mode: it only grows once the thumb actually extends.
     """
-    tip = landmarks[THUMB_TIP]
-    ip = landmarks[THUMB_IP]
-    if handedness == "Right":
-        horizontal = tip[0] < ip[0]
-    else:
-        horizontal = tip[0] > ip[0]
-    vertical = tip[1] < ip[1]  # tip above the IP joint (smaller y)
-    return bool(horizontal or vertical)
-
-
-def _thumb_clear_of_folded_fingers(
-    landmarks: np.ndarray, thumb_clear_margin: float = 0.5
-) -> bool:
-    """True when the thumb tip is held well clear of the folded fingers.
-
-    This is what separates a thumbs-up from a fist: in a fist the thumb wraps
-    across the folded fingers, so its tip lands close to the index/middle
-    fingertips (which is also why a fist can trip the pinch check). A thumbs-up
-    holds the thumb out, away from them. ``thumb_clear_margin`` is a multiple
-    of :func:`_hand_scale`, not a fixed distance, so the same threshold holds
-    up whether the hand fills the frame or is held farther from the camera.
-    """
-    tip = landmarks[THUMB_TIP, :2]
-    index_tip = landmarks[FINGER_TIPS["index"], :2]
-    middle_tip = landmarks[FINGER_TIPS["middle"], :2]
-    nearest = min(
-        float(np.linalg.norm(tip - index_tip)),
-        float(np.linalg.norm(tip - middle_tip)),
-    )
-    return nearest > thumb_clear_margin * _hand_scale(landmarks)
+    wrist = landmarks[WRIST, :2]
+    reach = float(np.linalg.norm(landmarks[THUMB_TIP, :2] - wrist))
+    return reach / _hand_scale(landmarks)
 
 
 def is_pinch(landmarks: np.ndarray, pinch_threshold: float = 0.06) -> bool:
@@ -136,7 +116,7 @@ def classify(
     handedness: str = "Right",
     pinch_threshold: float = 0.06,
     fist_fold_margin: float = 0.03,
-    thumb_clear_margin: float = 0.5,
+    thumb_clear_margin: float = 1.5,
 ) -> str:
     """Classify a hand pose into a named gesture.
 
@@ -145,11 +125,11 @@ def classify(
 
     Each closed-hand disambiguation has its own threshold, tunable
     independently: ``fist_fold_margin`` decides how clearly folded a hand must
-    be to count as closed at all, ``thumb_clear_margin`` (a multiple of hand
-    size, see :func:`_hand_scale`) then decides whether the thumb held out from
-    that closed hand reads as a thumbs-up, and ``pinch_threshold`` is a
-    separate, unrelated check for an open hand with the thumb and index
-    touching.
+    be to count as closed at all, ``thumb_clear_margin`` (how far the thumb
+    must reach from the wrist, as a multiple of hand size -- see
+    :func:`_thumb_reach`) then decides whether that closed hand reads as a
+    thumbs-up, and ``pinch_threshold`` is a separate, unrelated check for an
+    open hand with the thumb and index touching.
     """
     up = _fingers_up(landmarks, handedness)
     thumb = up["thumb"]
@@ -163,12 +143,10 @@ def classify(
     # thumbs-up (the wrapped thumb reads as "extended") and with a pinch (that
     # same thumb sits right next to the index tip). Resolve the closed hand
     # here, before the pinch check, so a fist can no longer trip either: it is
-    # a thumbs-up only when the thumb is both pointing out and held clear of the
-    # folded fingers; otherwise it is a fist.
+    # a thumbs-up only when the thumb reaches clearly away from the wrist;
+    # otherwise it is a fist.
     if fingers_folded:
-        if _thumb_points_out(landmarks, handedness) and _thumb_clear_of_folded_fingers(
-            landmarks, thumb_clear_margin
-        ):
+        if _thumb_reach(landmarks) > thumb_clear_margin:
             return "thumbs_up"
         return "fist"
 
@@ -217,7 +195,7 @@ def classify_hands(
     hands: list[tuple[np.ndarray, str]],
     pinch_threshold: float | dict[str, float] = 0.06,
     fist_fold_margin: float | dict[str, float] = 0.03,
-    thumb_clear_margin: float | dict[str, float] = 0.5,
+    thumb_clear_margin: float | dict[str, float] = 1.5,
 ) -> list[str | None]:
     """Classify each detected hand and return ``[left_gesture, right_gesture]``.
 
