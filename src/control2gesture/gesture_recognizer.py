@@ -17,25 +17,10 @@ from __future__ import annotations
 
 import numpy as np
 
-WRIST = 0
 THUMB_TIP, THUMB_IP, THUMB_MCP = 4, 3, 2
-MIDDLE_MCP = 9
 FINGER_TIPS = {"index": 8, "middle": 12, "ring": 16, "pinky": 20}
 FINGER_PIPS = {"index": 6, "middle": 10, "ring": 14, "pinky": 18}
 INDEX_TIP = 8
-
-
-def _hand_scale(landmarks: np.ndarray) -> float:
-    """A stable measure of hand size (wrist to middle-knuckle distance).
-
-    Knuckle (MCP) positions barely move as fingers curl, so this stays steady
-    across every pose while scaling with how large the hand appears in
-    frame -- i.e. how close it is to the camera. Distance-based thresholds
-    (like thumb clearance) are expressed as a multiple of this instead of a
-    fixed image-space distance, so one setting works at any distance instead
-    of needing to be re-tuned every time the hand moves closer or farther.
-    """
-    return float(np.linalg.norm(landmarks[WRIST, :2] - landmarks[MIDDLE_MCP, :2]))
 
 
 def _fingers_up(landmarks: np.ndarray, handedness: str) -> dict[str, bool]:
@@ -87,23 +72,29 @@ def _pinch_distance(landmarks: np.ndarray) -> float:
     return float(np.linalg.norm(landmarks[THUMB_TIP, :2] - landmarks[INDEX_TIP, :2]))
 
 
-def _thumb_reach(landmarks: np.ndarray) -> float:
-    """How far the thumb tip is from the wrist, in units of hand_scale.
+def thumb_straightness(landmarks: np.ndarray) -> float:
+    """How straight the thumb is, from -1 (bent sharply back on itself) to 1
+    (fully extended) -- the cosine of the angle at the thumb's IP joint.
 
-    This is what separates a thumbs-up from a fist: in a fist the thumb curls
-    back in near the palm, while a thumbs-up reaches the thumb out away from
-    it. Measuring straight-line distance from a fixed anchor (the wrist)
-    rather than testing whether the tip is "above" or "to the side of" the IP
-    joint means the result doesn't depend on the hand being held upright on
-    screen: a tucked fist thumb curls *over* the folded fingers, so its tip
-    often still reads as "above the IP joint" under an axis-aligned test even
-    though the thumb itself is fully retracted -- that false positive is what
-    let a real fist get misread as thumbs_up. Reach from the wrist doesn't
-    have that failure mode: it only grows once the thumb actually extends.
+    This is what separates a thumbs-up from a fist: a tucked fist thumb bends
+    sharply at the IP joint to wrap over the folded fingers, while a
+    thumbs-up keeps the thumb's two segments roughly in line. A joint angle is
+    dimensionless, so unlike a distance-based test it needs no calibration
+    against hand size or camera distance, and unlike an axis-aligned
+    "above/beside the IP joint" test it doesn't depend on the hand being held
+    upright on screen -- both of which let a tucked fist thumb get misread as
+    extended in earlier versions of this check.
     """
-    wrist = landmarks[WRIST, :2]
-    reach = float(np.linalg.norm(landmarks[THUMB_TIP, :2] - wrist))
-    return reach / _hand_scale(landmarks)
+    mcp = landmarks[THUMB_MCP, :2]
+    ip = landmarks[THUMB_IP, :2]
+    tip = landmarks[THUMB_TIP, :2]
+    proximal = ip - mcp
+    distal = tip - ip
+    proximal_len = float(np.linalg.norm(proximal))
+    distal_len = float(np.linalg.norm(distal))
+    if proximal_len < 1e-9 or distal_len < 1e-9:
+        return 1.0
+    return float(np.dot(proximal, distal) / (proximal_len * distal_len))
 
 
 def is_pinch(landmarks: np.ndarray, pinch_threshold: float = 0.06) -> bool:
@@ -116,7 +107,7 @@ def classify(
     handedness: str = "Right",
     pinch_threshold: float = 0.06,
     fist_fold_margin: float = 0.03,
-    thumb_clear_margin: float = 1.5,
+    thumb_straight_threshold: float = 0.5,
 ) -> str:
     """Classify a hand pose into a named gesture.
 
@@ -125,11 +116,11 @@ def classify(
 
     Each closed-hand disambiguation has its own threshold, tunable
     independently: ``fist_fold_margin`` decides how clearly folded a hand must
-    be to count as closed at all, ``thumb_clear_margin`` (how far the thumb
-    must reach from the wrist, as a multiple of hand size -- see
-    :func:`_thumb_reach`) then decides whether that closed hand reads as a
-    thumbs-up, and ``pinch_threshold`` is a separate, unrelated check for an
-    open hand with the thumb and index touching.
+    be to count as closed at all, ``thumb_straight_threshold`` (see
+    :func:`thumb_straightness`) then decides whether the thumb held straight
+    out from that closed hand reads as a thumbs-up, and ``pinch_threshold`` is
+    a separate, unrelated check for an open hand with the thumb and index
+    touching.
     """
     up = _fingers_up(landmarks, handedness)
     thumb = up["thumb"]
@@ -143,10 +134,10 @@ def classify(
     # thumbs-up (the wrapped thumb reads as "extended") and with a pinch (that
     # same thumb sits right next to the index tip). Resolve the closed hand
     # here, before the pinch check, so a fist can no longer trip either: it is
-    # a thumbs-up only when the thumb reaches clearly away from the wrist;
-    # otherwise it is a fist.
+    # a thumbs-up only when the thumb itself is held straight, not bent back
+    # over the folded fingers; otherwise it is a fist.
     if fingers_folded:
-        if _thumb_reach(landmarks) > thumb_clear_margin:
+        if thumb_straightness(landmarks) > thumb_straight_threshold:
             return "thumbs_up"
         return "fist"
 
@@ -195,7 +186,7 @@ def classify_hands(
     hands: list[tuple[np.ndarray, str]],
     pinch_threshold: float | dict[str, float] = 0.06,
     fist_fold_margin: float | dict[str, float] = 0.03,
-    thumb_clear_margin: float | dict[str, float] = 1.5,
+    thumb_straight_threshold: float | dict[str, float] = 0.5,
 ) -> list[str | None]:
     """Classify each detected hand and return ``[left_gesture, right_gesture]``.
 
@@ -222,7 +213,7 @@ def classify_hands(
                 handedness,
                 _resolve_threshold(pinch_threshold, handedness),
                 _resolve_threshold(fist_fold_margin, handedness),
-                _resolve_threshold(thumb_clear_margin, handedness),
+                _resolve_threshold(thumb_straight_threshold, handedness),
             )
     return [sides["Left"], sides["Right"]]
 

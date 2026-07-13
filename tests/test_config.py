@@ -87,11 +87,11 @@ def test_gesture_must_be_two_element_list(tmp_path):
 
 
 def test_gesture_thresholds_falls_back_to_shared_value_by_default():
-    s = Settings(pinch_threshold=0.08, fist_fold_margin=0.04, thumb_clear_margin=0.12)
+    s = Settings(pinch_threshold=0.08, fist_fold_margin=0.04, thumb_straight_threshold=0.6)
     pinch, fist, thumb = s.gesture_thresholds()
     assert pinch == {"Left": 0.08, "Right": 0.08}
     assert fist == {"Left": 0.04, "Right": 0.04}
-    assert thumb == {"Left": 0.12, "Right": 0.12}
+    assert thumb == {"Left": 0.6, "Right": 0.6}
 
 
 def test_gesture_thresholds_per_hand_override_wins():

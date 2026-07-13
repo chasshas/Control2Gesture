@@ -14,11 +14,6 @@ def base_pose() -> np.ndarray:
     """A right hand with all fingers folded and thumb tucked (a fist)."""
     lm = np.zeros((21, 3), dtype=np.float32)
 
-    # Wrist and a middle-knuckle reference, giving a hand_scale of 0.15 --
-    # used to make the thumb-clearance check scale with hand size.
-    lm[gr.WRIST] = [0.5, 0.70, 0.0]
-    lm[gr.MIDDLE_MCP] = [0.5, 0.55, 0.0]
-
     # Four fingers folded: tip below (larger y than) pip.
     for tip, pip in zip(
         gr.FINGER_TIPS.values(), gr.FINGER_PIPS.values()
@@ -26,9 +21,12 @@ def base_pose() -> np.ndarray:
         lm[pip] = [0.5, 0.50, 0.0]
         lm[tip] = [0.5, 0.60, 0.0]
 
-    # Thumb tucked: for a "Right" hand, tucked means tip_x >= ip_x.
-    lm[gr.THUMB_IP] = [0.50, 0.55, 0.0]
-    lm[gr.THUMB_TIP] = [0.56, 0.55, 0.0]
+    # Thumb tucked and bent at the IP joint (a real fist): MCP -> IP points
+    # mostly up, IP -> TIP bends off to the side, curling over the folded
+    # fingers -- for a "Right" hand, tucked also means tip_x >= ip_x.
+    lm[gr.THUMB_MCP] = [0.58, 0.68, 0.0]
+    lm[gr.THUMB_IP] = [0.56, 0.56, 0.0]
+    lm[gr.THUMB_TIP] = [0.60, 0.62, 0.0]
 
     # Keep thumb tip and index tip far apart so it isn't read as a pinch.
     lm[gr.INDEX_TIP] = [0.30, 0.60, 0.0]
@@ -41,8 +39,9 @@ def raise_finger(lm: np.ndarray, name: str) -> None:
 
 
 def raise_thumb(lm: np.ndarray) -> None:
-    lm[gr.THUMB_TIP, 0] = 0.40  # tip_x < ip_x => extended (Right hand)
-    lm[gr.THUMB_TIP, 1] = 0.35  # also reach up and away from the wrist
+    """Straighten the thumb out, continuing the MCP->IP line (tip_x < ip_x,
+    i.e. extended, for a "Right" hand)."""
+    lm[gr.THUMB_TIP, :2] = [0.52, 0.32]
 
 
 def test_fist():
@@ -97,25 +96,25 @@ def test_pinch():
 
 def test_fist_with_wrapped_thumb_is_not_thumbs_up_or_pinch():
     """Regression: a real fist wraps the thumb across the folded fingers, so its
-    tip reads as "extended" (above the IP joint) and lands next to the index
-    tip. It must still be a fist, not thumbs_up or pinch: the tip barely
-    reaches from the wrist, unlike a genuinely extended thumb."""
+    tip reads as "extended" (above/beside the IP joint under an axis-aligned
+    test) and lands next to the index tip. It must still be a fist, not
+    thumbs_up or pinch: the thumb is sharply bent at the IP joint, unlike a
+    genuinely straight thumb."""
     lm = base_pose()
     # Thumb wrapped inward (reads as extended) and close to the index tip.
-    lm[gr.THUMB_TIP, :2] = [0.34, 0.58]  # index tip is [0.30, 0.60]
+    lm[gr.THUMB_TIP, :2] = [0.32, 0.58]  # index tip is [0.30, 0.60]
     assert gr.is_pinch(lm, 0.06)  # tips are close enough to look like a pinch...
     assert gr.classify(lm, "Right") == "fist"  # ...but it's still a fist
 
 
-def test_thumbs_up_becomes_fist_with_a_stricter_thumb_clear_margin():
-    """A thumb reaching moderately away from the wrist reads as thumbs_up with
-    a lenient margin, but requiring more reach (relative to hand size) should
-    read it as fist instead -- independent of fist_fold_margin, which only
-    gates the closed-hand check."""
+def test_thumbs_up_becomes_fist_with_a_stricter_thumb_straight_threshold():
+    """A thumb bent only partway reads as thumbs_up with a lenient threshold,
+    but requiring more straightness should read it as fist instead --
+    independent of fist_fold_margin, which only gates the closed-hand check."""
     lm = base_pose()
-    lm[gr.THUMB_TIP, :2] = [0.40, 0.45]  # ~1.8x hand_scale from the wrist
-    assert gr.classify(lm, "Right", thumb_clear_margin=1.2) == "thumbs_up"
-    assert gr.classify(lm, "Right", thumb_clear_margin=2.2) == "fist"
+    lm[gr.THUMB_TIP, :2] = [0.44, 0.54]  # partially straightened, cos ~= 0.32
+    assert gr.classify(lm, "Right", thumb_straight_threshold=0.1) == "thumbs_up"
+    assert gr.classify(lm, "Right", thumb_straight_threshold=0.5) == "fist"
 
 
 def test_fist_fold_margin_does_not_affect_other_poses():
@@ -217,12 +216,13 @@ def test_classify_hands_empty():
 def test_classify_hands_per_hand_thresholds():
     """A dict threshold lets one hand use a different value than the other."""
     left, right = handed_fist("Left"), handed_fist("Right")
-    # Same thumb reach (~1.7x hand_scale) for both hands; only the required
-    # margin differs, so the right hand reads as fist while the left doesn't.
+    # Same partial thumb straightness (cos ~= 0.32) for both hands; only the
+    # required threshold differs, so the right hand reads as fist while the
+    # left doesn't.
     for lm in (left, right):
-        lm[gr.THUMB_TIP, :2] = [0.5, 0.45]
+        lm[gr.THUMB_TIP, :2] = [0.44, 0.54]
     result = gr.classify_hands(
         [(left, "Left"), (right, "Right")],
-        thumb_clear_margin={"Left": 1.2, "Right": 2.0},
+        thumb_straight_threshold={"Left": 0.1, "Right": 0.5},
     )
     assert result == ["thumbs_up", "fist"]

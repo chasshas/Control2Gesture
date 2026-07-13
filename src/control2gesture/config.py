@@ -28,18 +28,17 @@ class Settings:
     # side can be finetuned independently instead of moving both hands at once.
     pinch_threshold: float = 0.06
     fist_fold_margin: float = 0.03
-    # How far the thumb must reach from the wrist (as a multiple of hand size,
-    # see gesture_recognizer._thumb_reach) to read a closed hand as thumbs_up
-    # rather than fist. A ratio of hand size, not a fixed image-space distance,
-    # so it doesn't need re-tuning as the hand moves closer to/farther from the
-    # camera.
-    thumb_clear_margin: float = 1.5
+    # How straight the thumb must be (see gesture_recognizer.thumb_straightness,
+    # -1 = bent back on itself, 1 = fully extended) to read a closed hand as
+    # thumbs_up rather than fist. A joint angle, not a distance, so it needs no
+    # calibration against hand size or camera distance.
+    thumb_straight_threshold: float = 0.5
     pinch_threshold_left: float | None = None
     pinch_threshold_right: float | None = None
     fist_fold_margin_left: float | None = None
     fist_fold_margin_right: float | None = None
-    thumb_clear_margin_left: float | None = None
-    thumb_clear_margin_right: float | None = None
+    thumb_straight_threshold_left: float | None = None
+    thumb_straight_threshold_right: float | None = None
     stable_frames: int = 3
     # Distance-driven two-hand gestures (zoom, volume): how much the inter-hand
     # distance must change (in normalized units) to emit one step, and how many
@@ -70,9 +69,9 @@ class Settings:
                 self.fist_fold_margin, self.fist_fold_margin_left, self.fist_fold_margin_right
             ),
             resolve(
-                self.thumb_clear_margin,
-                self.thumb_clear_margin_left,
-                self.thumb_clear_margin_right,
+                self.thumb_straight_threshold,
+                self.thumb_straight_threshold_left,
+                self.thumb_straight_threshold_right,
             ),
         )
 

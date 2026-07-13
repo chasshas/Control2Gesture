@@ -57,6 +57,46 @@ def _draw_banner(
     )
 
 
+def _draw_thumb_diagnostics(
+    frame: np.ndarray,
+    hands: list[HandResult],
+    thumb_straight_threshold: float | dict[str, float],
+) -> None:
+    """Draw each present hand's live thumb-straightness value against its
+    threshold, just below the main banner.
+
+    This is the number ``thumb_straight_threshold`` (in ``gestures.yaml``) is
+    compared against to decide fist vs thumbs_up -- watch it while making both
+    gestures to pick a threshold that sits cleanly between them, instead of
+    guessing blind.
+    """
+    w = frame.shape[1]
+    cv2.rectangle(frame, (0, 40), (w, 70), (30, 30, 30), -1)
+    parts = []
+    for side in ("Left", "Right"):
+        hand = next((h for h in hands if h.handedness == side), None)
+        if hand is None:
+            continue
+        threshold = (
+            thumb_straight_threshold[side]
+            if isinstance(thumb_straight_threshold, dict)
+            else thumb_straight_threshold
+        )
+        straightness = gr.thumb_straightness(hand.landmarks)
+        parts.append(f"{side[0]} thumb_straightness={straightness:+.2f} (thr {threshold:+.2f})")
+    if parts:
+        cv2.putText(
+            frame,
+            "  ".join(parts),
+            (10, 60),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.55,
+            (0, 220, 220),
+            1,
+            cv2.LINE_AA,
+        )
+
+
 def run(config: Config) -> None:
     s = config.settings
 
@@ -120,6 +160,7 @@ def run(config: Config) -> None:
                         for hand in hands:
                             _draw_hand(frame, hand)
                         _draw_banner(frame, hands_pair, action, mapper.enabled)
+                        _draw_thumb_diagnostics(frame, hands, thumb_m)
                 else:
                     mapper.reset()
 
