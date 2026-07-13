@@ -42,6 +42,26 @@ def test_roundtrip_yaml_to_document_to_yaml(tmp_path):
     assert reloaded.mappings[2].keys == ["ctrl", "up"]
 
 
+def test_unrecognized_entry_fields_survive_a_roundtrip():
+    """A field the GUI has no dedicated widget for (e.g. a per-gesture
+    `stable_frames` override) must not be silently dropped when a mapping is
+    loaded and re-saved."""
+    text = textwrap.dedent(
+        """
+        gestures:
+          - gesture: [null, pinch]
+            action: left_click
+            stable_frames: 1
+        """
+    )
+    doc = gm.document_from_yaml(text)
+    assert doc.mappings[0].extra == {"stable_frames": 1}
+
+    reloaded = gm.document_from_yaml(gm.dump_document(doc))
+    assert reloaded.mappings[0].extra == {"stable_frames": 1}
+    assert reloaded.mappings[0].to_entry()["stable_frames"] == 1
+
+
 def test_exported_yaml_loads_in_app_config(tmp_path):
     """A document exported here must load straight back into the real app."""
     doc = GestureDocument(

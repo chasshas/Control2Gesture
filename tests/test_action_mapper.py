@@ -121,3 +121,34 @@ def test_toggle_gesture_is_one_shot(tmp_path):
     mapper.handle(["four", "four"])
     mapper.handle(["four", "four"])
     assert mapper.enabled is False
+
+
+def test_per_gesture_stable_frames_overrides_the_global_default(tmp_path):
+    """A gesture's own `stable_frames` wins over settings.stable_frames, so a
+    pinch-click can fire on the very first frame even with a slower global
+    default for everything else."""
+    config = write_config(
+        tmp_path,
+        """
+        settings:
+          stable_frames: 5
+        gestures:
+          - gesture: [null, pinch]
+            action: left_click
+            stable_frames: 1
+          - gesture: [null, victory]
+            action: right_click
+        """,
+    )
+    controller = FakeController()
+    mapper = ActionMapper(config, controller)
+
+    mapper.handle([None, "pinch"])
+    assert clicks(controller) == [("left_click",)]
+
+    mapper.reset()
+    mapper.handle([None, "victory"])
+    assert [c for c in controller.calls if c[0] == "right_click"] == []
+    for _ in range(4):
+        mapper.handle([None, "victory"])
+    assert [c for c in controller.calls if c[0] == "right_click"] == [("right_click",)]

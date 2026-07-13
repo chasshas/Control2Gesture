@@ -14,6 +14,11 @@ def base_pose() -> np.ndarray:
     """A right hand with all fingers folded and thumb tucked (a fist)."""
     lm = np.zeros((21, 3), dtype=np.float32)
 
+    # Wrist and a middle-knuckle reference, giving a hand_scale of 0.15 --
+    # used to make the thumb-clearance check scale with hand size.
+    lm[gr.WRIST] = [0.5, 0.70, 0.0]
+    lm[gr.MIDDLE_MCP] = [0.5, 0.55, 0.0]
+
     # Four fingers folded: tip below (larger y than) pip.
     for tip, pip in zip(
         gr.FINGER_TIPS.values(), gr.FINGER_PIPS.values()
@@ -100,6 +105,28 @@ def test_fist_with_wrapped_thumb_is_not_thumbs_up_or_pinch():
     assert gr.classify(lm, "Right") == "fist"  # ...but it's still a fist
 
 
+def test_thumbs_up_becomes_fist_with_a_stricter_thumb_clear_margin():
+    """A thumb held just barely clear of the folded fingers reads as thumbs_up
+    with a lenient margin, but requiring more clearance (relative to hand
+    size) should read it as fist instead -- independent of fist_fold_margin,
+    which only gates the closed-hand check."""
+    lm = base_pose()
+    raise_thumb(lm)
+    lm[gr.THUMB_TIP, :2] = [0.36, 0.58]  # index tip is [0.30, 0.60]: ~0.42x hand_scale away
+    assert gr.classify(lm, "Right", thumb_clear_margin=0.3) == "thumbs_up"
+    assert gr.classify(lm, "Right", thumb_clear_margin=0.6) == "fist"
+
+
+def test_fist_fold_margin_does_not_affect_other_poses():
+    """fist_fold_margin only gates the closed-hand (fist/thumbs_up) check; it
+    must not change whether victory is detected."""
+    lm = base_pose()
+    raise_finger(lm, "index")
+    raise_finger(lm, "middle")
+    assert gr.classify(lm, "Right", fist_fold_margin=0.03) == "victory"
+    assert gr.classify(lm, "Right", fist_fold_margin=0.20) == "victory"
+
+
 def test_index_tip_position():
     lm = base_pose()
     x, y = gr.index_tip_position(lm)
@@ -184,3 +211,20 @@ def test_classify_hands_single_hand_leaves_other_none():
 
 def test_classify_hands_empty():
     assert gr.classify_hands([]) == [None, None]
+
+
+def test_classify_hands_per_hand_thresholds():
+    """A dict threshold lets one hand use a different value than the other."""
+    left, right = handed_fist("Left"), handed_fist("Right")
+    # Widen the thumb-clearance requirement only for the right hand so its
+    # (identically wrapped) thumb now reads as fist while the left is untouched
+    # by the default margin.
+    left[gr.THUMB_TIP, :2] = [left[gr.INDEX_TIP, 0] + 0.20, left[gr.INDEX_TIP, 1]]
+    right[gr.THUMB_TIP, :2] = [right[gr.INDEX_TIP, 0] + 0.20, right[gr.INDEX_TIP, 1]]
+    for lm, handedness in ((left, "Left"), (right, "Right")):
+        lm[gr.THUMB_TIP, 1] = lm[gr.THUMB_IP, 1] - 0.02  # thumb points out
+    result = gr.classify_hands(
+        [(left, "Left"), (right, "Right")],
+        thumb_clear_margin={"Left": 0.2, "Right": 0.6},
+    )
+    assert result == ["thumbs_up", "fist"]

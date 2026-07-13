@@ -75,12 +75,16 @@ class ActionMapper:
         self.controller.reset_cursor_origin()
         return self.enabled
 
-    def _stabilize(self, pair: GesturePair) -> bool:
+    def _stabilize(self, pair: GesturePair, required_frames: int) -> bool:
         """Advance the debounce machine; return True once ``pair`` is stable.
 
-        A gesture pair must persist ``stable_frames`` consecutive frames. On the
-        transition to a new stable pair the one-shot latch and zoom-distance
-        tracking are reset so the next gesture starts clean.
+        A gesture pair must persist ``required_frames`` consecutive frames --
+        normally :attr:`stable_frames`, but a gesture entry's own
+        ``stable_frames`` field overrides it (see :meth:`handle`) so a fast,
+        deliberate gesture like a pinch-click can fire on the very first frame
+        while others keep the debounce. On the transition to a new stable pair
+        the one-shot latch and zoom-distance tracking are reset so the next
+        gesture starts clean.
         """
         if pair == self._candidate:
             self._stable_count += 1
@@ -88,7 +92,7 @@ class ActionMapper:
             self._candidate = pair
             self._stable_count = 1
 
-        if self._stable_count < self.stable_frames:
+        if self._stable_count < required_frames:
             return False
 
         if pair != self._active:
@@ -120,12 +124,18 @@ class ActionMapper:
         `toggle_control` always dispatches, even while control is disabled, so
         the same gesture can turn it back on; every other action is
         suppressed while :attr:`enabled` is False.
+
+        The number of consecutive frames required before the pair is
+        considered stable is :attr:`stable_frames` by default, but a gesture
+        entry can set its own ``stable_frames`` in ``gestures.yaml`` to react
+        faster (e.g. ``1`` for an instant click) or slower than the rest.
         """
         key: GesturePair = (pair[0], pair[1])
-        if not self._stabilize(key):
+        spec = self.config.action_for(pair)
+        required_frames = int(spec.get("stable_frames", self.stable_frames))
+        if not self._stabilize(key, required_frames):
             return
 
-        spec = self.config.action_for(pair)
         action = spec.get("action", "none")
         if action == "none":
             return

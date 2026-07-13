@@ -71,6 +71,7 @@ def run(config: Config) -> None:
 
     controller = Controller(smoothing=s.cursor_smoothing, sensitivity=s.cursor_sensitivity)
     mapper = ActionMapper(config, controller)
+    pinch_t, fist_m, thumb_m = s.gesture_thresholds()
 
     log.info(
         "Starting. Press 'q' (or Ctrl+C) to quit, space or [four, four] to "
@@ -98,8 +99,9 @@ def run(config: Config) -> None:
                 # The whole system speaks one [left, right] gesture pair.
                 hands_pair = gr.classify_hands(
                     [(h.landmarks, h.handedness) for h in hands],
-                    s.pinch_threshold,
-                    s.fist_fold_margin,
+                    pinch_t,
+                    fist_m,
+                    thumb_m,
                 )
                 log.debug("hands: %s", hands_pair)
 

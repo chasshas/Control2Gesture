@@ -4,7 +4,7 @@ import textwrap
 
 import pytest
 
-from control2gesture.config import load_config
+from control2gesture.config import Settings, load_config
 
 
 def write_config(tmp_path, body: str):
@@ -84,6 +84,26 @@ def test_gesture_must_be_two_element_list(tmp_path):
                 """,
             )
         )
+
+
+def test_gesture_thresholds_falls_back_to_shared_value_by_default():
+    s = Settings(pinch_threshold=0.08, fist_fold_margin=0.04, thumb_clear_margin=0.12)
+    pinch, fist, thumb = s.gesture_thresholds()
+    assert pinch == {"Left": 0.08, "Right": 0.08}
+    assert fist == {"Left": 0.04, "Right": 0.04}
+    assert thumb == {"Left": 0.12, "Right": 0.12}
+
+
+def test_gesture_thresholds_per_hand_override_wins():
+    s = Settings(
+        pinch_threshold=0.06,
+        pinch_threshold_left=0.09,
+        fist_fold_margin=0.03,
+        fist_fold_margin_right=0.05,
+    )
+    pinch, fist, _ = s.gesture_thresholds()
+    assert pinch == {"Left": 0.09, "Right": 0.06}
+    assert fist == {"Left": 0.03, "Right": 0.05}
 
 
 def test_duplicate_pair_raises(tmp_path):

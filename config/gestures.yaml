@@ -28,6 +28,10 @@
 #                  off, gestures are still recognized (so this one can turn
 #                  control back on) but nothing else fires. Also bound to the
 #                  space key in the preview window.
+#
+# Any gesture entry may also set `stable_frames: N` to override the global
+# `settings.stable_frames` for just that pair -- e.g. `1` so a click fires the
+# instant the gesture is recognized instead of waiting several frames.
 
 settings:
   camera_index: 0
@@ -52,13 +56,35 @@ settings:
   cursor_sensitivity: 2.0        # relative move_cursor gain: how many screen-widths
                                   # the cursor travels per full-frame fingertip swipe;
                                   # higher = faster cursor movement per hand motion
+  # Closed-hand / pinch tuning. Each has its own independent knob (tuning fist
+  # no longer affects pointing/victory/three/four/open_palm sensitivity), plus
+  # an optional per-hand override below if one hand needs different values.
   pinch_threshold: 0.09          # normalized thumb-index distance to count as a pinch
   fist_fold_margin: 0.05         # slack added to the finger-folded check; higher
                                   # makes fist require a clearer close, so a pinch's
                                   # naturally curled other fingers aren't misread as fist
+  thumb_clear_margin: 0.5        # how far the thumb tip must be from the folded index/
+                                  # middle tips to read a closed hand as thumbs_up instead
+                                  # of fist, as a multiple of the hand's own size (wrist to
+                                  # middle knuckle) rather than a fixed distance -- so the
+                                  # same value works whether the hand is close to or far
+                                  # from the camera. Raise it if fist is misread as
+                                  # thumbs_up (thumb not held out clearly enough yet);
+                                  # lower it if thumbs_up is misread as fist.
+
+  # Per-hand overrides: uncomment and set only the ones you need to tune
+  # separately for that hand. Leave commented/absent to use the shared value
+  # above for both hands.
+  # pinch_threshold_left: 0.09
+  # pinch_threshold_right: 0.09
+  # fist_fold_margin_left: 0.05
+  # fist_fold_margin_right: 0.05
+  # thumb_clear_margin_left: 0.5
+  # thumb_clear_margin_right: 0.5
 
   # A gesture must persist this many consecutive frames before a one-shot
-  # action fires. Prevents accidental double triggers.
+  # action fires (prevents accidental double triggers from a single flickery
+  # frame). Per-gesture entries below can override this -- see `left_click`.
   stable_frames: 3
 
   # Distance-driven two-hand gestures (zoom, volume): how far (normalized) the
@@ -78,6 +104,8 @@ gestures:
     action: move_cursor
   - gesture: [null, pinch]
     action: left_click
+    stable_frames: 1              # fire the instant a pinch is recognized, not
+                                    # after settings.stable_frames frames of delay
   - gesture: [null, victory]
     action: right_click
   - gesture: [null, thumbs_up]

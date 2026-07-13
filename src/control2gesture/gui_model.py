@@ -96,6 +96,10 @@ class Mapping:
     action: str = "none"
     amount: int = DEFAULT_AMOUNT
     keys: list[str] = field(default_factory=list)
+    # Any other entry fields the GUI doesn't have a dedicated widget for (e.g.
+    # a per-gesture ``stable_frames`` override), kept so editing a mapping in
+    # the GUI doesn't silently drop settings only the YAML file knows about.
+    extra: dict[str, Any] = field(default_factory=dict)
 
     @property
     def pair(self) -> tuple[str | None, str | None]:
@@ -123,6 +127,7 @@ class Mapping:
             entry["amount"] = int(self.amount)
         elif self.action in ACTIONS_WITH_KEYS:
             entry["keys"] = _FlowList(list(self.keys))
+        entry.update(self.extra)
         return entry
 
     @classmethod
@@ -137,12 +142,15 @@ class Mapping:
         action = entry.get("action", "none")
         amount = entry.get("amount", DEFAULT_AMOUNT)
         keys = entry.get("keys", []) or []
+        known = {"gesture", "action", "amount", "keys"}
+        extra = {k: v for k, v in entry.items() if k not in known}
         return cls(
             left=pair[0],
             right=pair[1],
             action=action,
             amount=int(amount) if amount is not None else DEFAULT_AMOUNT,
             keys=[str(k) for k in keys],
+            extra=extra,
         )
 
 

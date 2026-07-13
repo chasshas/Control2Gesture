@@ -23,8 +23,21 @@ class Settings:
     tracking_confidence: float = 0.6
     cursor_smoothing: float = 0.5
     cursor_sensitivity: float = 3.0
+    # Shared defaults for the three closed-hand/pinch thresholds. Each has an
+    # optional per-hand override below (``*_left`` / ``*_right``) so either
+    # side can be finetuned independently instead of moving both hands at once.
     pinch_threshold: float = 0.06
     fist_fold_margin: float = 0.03
+    # A multiple of the hand's own size (see gesture_recognizer._hand_scale),
+    # not a fixed image-space distance -- so it doesn't need re-tuning as the
+    # hand moves closer to or farther from the camera.
+    thumb_clear_margin: float = 0.5
+    pinch_threshold_left: float | None = None
+    pinch_threshold_right: float | None = None
+    fist_fold_margin_left: float | None = None
+    fist_fold_margin_right: float | None = None
+    thumb_clear_margin_left: float | None = None
+    thumb_clear_margin_right: float | None = None
     stable_frames: int = 3
     # Distance-driven two-hand gestures (zoom, volume): how much the inter-hand
     # distance must change (in normalized units) to emit one step, and how many
@@ -32,6 +45,34 @@ class Settings:
     two_hand_deadzone: float = 0.03
     two_hand_step: int = 1
     show_window: bool = True
+
+    def gesture_thresholds(
+        self,
+    ) -> tuple[dict[str, float], dict[str, float], dict[str, float]]:
+        """Resolve pinch/fist/thumb thresholds per hand for
+        :func:`gesture_recognizer.classify_hands`.
+
+        A ``*_left``/``*_right`` override wins for that hand; otherwise both
+        hands fall back to the shared base value.
+        """
+
+        def resolve(base: float, left: float | None, right: float | None) -> dict[str, float]:
+            return {
+                "Left": base if left is None else left,
+                "Right": base if right is None else right,
+            }
+
+        return (
+            resolve(self.pinch_threshold, self.pinch_threshold_left, self.pinch_threshold_right),
+            resolve(
+                self.fist_fold_margin, self.fist_fold_margin_left, self.fist_fold_margin_right
+            ),
+            resolve(
+                self.thumb_clear_margin,
+                self.thumb_clear_margin_left,
+                self.thumb_clear_margin_right,
+            ),
+        )
 
 
 # A gesture is identified by the (left, right) pair the recognizer produces;
