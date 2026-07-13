@@ -1,0 +1,61 @@
+# Control2Gesture action map — edited with the mapping GUI.
+# 'settings' tunes the camera/cursor; 'gestures' maps each [left, right]
+# hand-pose pair to an action (null = no hand on that side).
+settings:
+  camera_index: 0
+  frame_width: 1280
+  frame_height: 720
+  camera_fourcc: MJPG
+  flip_horizontal: true
+  max_hands: 2
+  model_complexity: 0
+  detection_confidence: 0.7
+  tracking_confidence: 0.6
+  cursor_smoothing: 0.5
+  cursor_sensitivity: 2.0
+  pinch_threshold: 0.09
+  fist_fold_margin: 0.05
+  thumb_straight_threshold: 0.5
+  stable_frames: 3
+  two_hand_deadzone: 0.03
+  two_hand_step: 1
+  show_window: true
+gestures:
+- gesture: [four, four]
+  action: toggle_control
+- gesture: [null, pointing]
+  action: move_cursor
+- gesture: [null, pinch]
+  action: key
+  keys: [f]
+- gesture: [null, victory]
+  action: right_click
+- gesture: [null, thumbs_up]
+  action: scroll_up
+  amount: 3
+- gesture: [null, three]
+  action: scroll_down
+  amount: 3
+- gesture: [pinch, pinch]
+  action: key
+  keys: [f, j]
+- gesture: [open_palm, open_palm]
+  action: volume
+- gesture: [fist, fist]
+  action: hotkey
+  keys: [ctrl, up]
+- gesture: [victory, victory]
+  action: hotkey
+  keys: [command, shift, '4']
+- gesture: [fist, pointing]
+  action: hotkey
+  keys: [command, shift, ']']
+- gesture: [pointing, fist]
+  action: hotkey
+  keys: [command, shift, '[']
+- gesture: [open_palm, fist]
+  action: hotkey
+  keys: [command, z]
+- gesture: [pinch, null]
+  action: key
+  keys: [j]

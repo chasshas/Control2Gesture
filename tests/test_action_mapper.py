@@ -123,6 +123,42 @@ def test_toggle_gesture_is_one_shot(tmp_path):
     assert mapper.enabled is False
 
 
+def test_orthogonal_any_wildcards_both_fire_on_overlap(tmp_path):
+    """[any, pinch] and [pinch, any] each govern one hand; on an actual
+    [pinch, pinch] neither dominates the other, so both actions should fire,
+    each with its own one-shot latch."""
+    config = write_config(
+        tmp_path,
+        """
+        settings:
+          stable_frames: 1
+        gestures:
+          - gesture: [any, pinch]
+            action: left_click
+          - gesture: [pinch, any]
+            action: right_click
+        """,
+    )
+    controller = FakeController()
+    mapper = ActionMapper(config, controller)
+
+    mapper.handle(["pinch", "pinch"])
+    assert len(clicks(controller)) == 1
+    assert len([c for c in controller.calls if c[0] == "right_click"]) == 1
+
+    # Holding the same pair must not re-fire either one-shot.
+    mapper.handle(["pinch", "pinch"])
+    assert len(clicks(controller)) == 1
+    assert len([c for c in controller.calls if c[0] == "right_click"]) == 1
+
+    # Dropping to only the right-hand pinch keeps that one's action live and
+    # lets the left-hand one re-arm for next time.
+    mapper.reset()
+    mapper.handle([None, "pinch"])
+    assert len(clicks(controller)) == 2
+    assert len([c for c in controller.calls if c[0] == "right_click"]) == 1
+
+
 def test_per_gesture_stable_frames_overrides_the_global_default(tmp_path):
     """A gesture's own `stable_frames` wins over settings.stable_frames, so a
     pinch-click can fire on the very first frame even with a slower global

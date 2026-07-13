@@ -127,6 +127,11 @@ def test_valid_map_has_no_errors():
     assert gm.validate_mappings([Mapping(right="pointing", action="move_cursor")]) == []
 
 
+def test_any_wildcard_is_a_valid_side():
+    errors = gm.validate_mappings([Mapping(left=gm.ANY, right="pinch", action="left_click")])
+    assert errors == []
+
+
 def test_parse_keys_accepts_commas_and_plus():
     assert gm.parse_keys("command, shift, 4") == ["command", "shift", "4"]
     assert gm.parse_keys("command+shift+4") == ["command", "shift", "4"]

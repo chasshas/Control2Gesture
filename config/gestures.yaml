@@ -7,6 +7,15 @@
 # [<pose>, null] (left hand). Any pair not listed here (or mapped to `none`)
 # is detected but does nothing. Left/Right follow the on-screen handedness.
 #
+# `any` is a wildcard for one (or both) sides, meaning "whatever this hand is
+# doing, including no hand at all" -- e.g. [any, pinch] fires on a right-hand
+# pinch no matter what the left hand does. An exact [left, right] entry always
+# wins over a wildcard one that also matches; between two matching wildcard
+# entries, the more specific one (fewer `any` sides) wins -- unless they
+# constrain *different* sides (e.g. [any, pinch] and [pinch, any]), in which
+# case neither is more specific and both fire, e.g. on an actual
+# [pinch, pinch].
+#
 # Recognized single-hand poses (see src/control2gesture/gesture_recognizer.py):
 #   fist, open_palm, pointing, victory, three, four, thumbs_up, pinch
 #

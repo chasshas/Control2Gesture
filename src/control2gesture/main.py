@@ -155,7 +155,10 @@ def run(config: Config) -> None:
                         else None
                     )
                     mapper.handle(hands_pair, cursor_xy, distance)
-                    action = config.action_for(hands_pair).get("action", "none")
+                    actions = [
+                        spec.get("action", "none") for spec in config.actions_for(hands_pair)
+                    ]
+                    action = "+".join(actions) if actions else "none"
                     if s.show_window:
                         for hand in hands:
                             _draw_hand(frame, hand)

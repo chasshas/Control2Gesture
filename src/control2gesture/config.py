@@ -80,6 +80,33 @@ class Settings:
 # either side may be None when no hand is on that side.
 GesturePair = tuple[str | None, str | None]
 
+# Wildcard usable in a config entry's ``gesture`` side to mean "match whatever
+# this hand is doing, including no hand at all" -- e.g. ``[any, pinch]`` fires
+# on a right-hand pinch no matter what the left hand is up to. Never appears
+# in a pair the recognizer produces, only in config-authored patterns.
+ANY = "any"
+
+
+def _pattern_matches(pattern: GesturePair, pair: GesturePair) -> bool:
+    return (pattern[0] == ANY or pattern[0] == pair[0]) and (
+        pattern[1] == ANY or pattern[1] == pair[1]
+    )
+
+
+def _dominates(a: GesturePair, b: GesturePair) -> bool:
+    """True when pattern ``a`` is at least as specific as ``b`` on every side
+    and strictly more specific on at least one -- so ``b`` is redundant
+    wherever both match.
+
+    ``[any, pinch]`` dominates ``[any, any]`` (same left, more specific
+    right), so only the former fires. But ``[any, pinch]`` and ``[pinch,
+    any]`` constrain *different* sides, so neither dominates the other --
+    both stay live and both fire, e.g. on an actual ``[pinch, pinch]`` pair.
+    """
+    rank_a = (a[0] != ANY, a[1] != ANY)
+    rank_b = (b[0] != ANY, b[1] != ANY)
+    return rank_a[0] >= rank_b[0] and rank_a[1] >= rank_b[1] and rank_a != rank_b
+
 
 @dataclass
 class Config:
@@ -87,9 +114,44 @@ class Config:
     # Maps a (left, right) gesture pair -> action spec, e.g. {"action": "zoom"}.
     gestures: dict[GesturePair, dict[str, Any]] = field(default_factory=dict)
 
+    def matching_patterns(
+        self, pair: Sequence[str | None]
+    ) -> list[tuple[GesturePair, dict[str, Any]]]:
+        """Return every configured ``(pattern, spec)`` that matches ``pair``,
+        minus any pattern dominated by a more specific matching one (see
+        :func:`_dominates`).
+
+        This is almost always a single entry, but wildcard patterns that
+        constrain different sides can both survive and both fire at once --
+        e.g. ``[any, pinch]`` and ``[pinch, any]`` both match ``[pinch,
+        pinch]``, since neither is more specific than the other.
+        """
+        key = (pair[0], pair[1])
+        candidates = [
+            (pattern, spec)
+            for pattern, spec in self.gestures.items()
+            if _pattern_matches(pattern, key)
+        ]
+        return [
+            (pattern, spec)
+            for pattern, spec in candidates
+            if not any(_dominates(other, pattern) for other, _ in candidates if other != pattern)
+        ]
+
+    def actions_for(self, pair: Sequence[str | None]) -> list[dict[str, Any]]:
+        """Like :meth:`matching_patterns`, but just the action specs."""
+        return [spec for _, spec in self.matching_patterns(pair)]
+
     def action_for(self, pair: Sequence[str | None]) -> dict[str, Any]:
-        """Look up the action for a ``[left, right]`` gesture pair."""
-        return self.gestures.get((pair[0], pair[1]), {"action": "none"})
+        """Look up a single action for a ``[left, right]`` gesture pair.
+
+        A convenience for callers that only want one label (e.g. the preview
+        banner); when more than one pattern matches (see
+        :meth:`matching_patterns`), this returns the first. Real dispatch
+        should use :meth:`matching_patterns` so every matching action fires.
+        """
+        specs = self.actions_for(pair)
+        return specs[0] if specs else {"action": "none"}
 
 
 def load_config(path: str | Path) -> Config:

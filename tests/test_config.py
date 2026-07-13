@@ -106,6 +106,81 @@ def test_gesture_thresholds_per_hand_override_wins():
     assert fist == {"Left": 0.03, "Right": 0.05}
 
 
+def test_any_wildcard_matches_regardless_of_other_side(tmp_path):
+    cfg = load_config(
+        write_config(
+            tmp_path,
+            """
+            gestures:
+              - gesture: [any, pinch]
+                action: left_click
+            """,
+        )
+    )
+    assert cfg.action_for([None, "pinch"]) == {"action": "left_click"}
+    assert cfg.action_for(["fist", "pinch"]) == {"action": "left_click"}
+    assert cfg.action_for(["pinch", "pinch"]) == {"action": "left_click"}
+    # Right side doesn't match -> still unmapped.
+    assert cfg.action_for(["fist", "fist"]) == {"action": "none"}
+
+
+def test_exact_pair_wins_over_any_wildcard(tmp_path):
+    cfg = load_config(
+        write_config(
+            tmp_path,
+            """
+            gestures:
+              - gesture: [any, pinch]
+                action: left_click
+              - gesture: [fist, pinch]
+                action: right_click
+            """,
+        )
+    )
+    assert cfg.action_for(["fist", "pinch"]) == {"action": "right_click"}
+    assert cfg.action_for(["open_palm", "pinch"]) == {"action": "left_click"}
+
+
+def test_more_specific_wildcard_wins_over_double_any(tmp_path):
+    cfg = load_config(
+        write_config(
+            tmp_path,
+            """
+            gestures:
+              - gesture: [any, any]
+                action: left_click
+              - gesture: [any, pinch]
+                action: right_click
+            """,
+        )
+    )
+    assert cfg.action_for(["fist", "pinch"]) == {"action": "right_click"}
+    assert cfg.action_for(["fist", "open_palm"]) == {"action": "left_click"}
+
+
+def test_orthogonal_wildcards_both_match(tmp_path):
+    """[any, pinch] and [pinch, any] constrain different sides, so neither
+    dominates the other -- an actual [pinch, pinch] should fire both."""
+    cfg = load_config(
+        write_config(
+            tmp_path,
+            """
+            gestures:
+              - gesture: [any, pinch]
+                action: left_click
+              - gesture: [pinch, any]
+                action: right_click
+            """,
+        )
+    )
+    specs = cfg.actions_for(["pinch", "pinch"])
+    assert {s["action"] for s in specs} == {"left_click", "right_click"}
+
+    # Off the overlap, only the relevant one matches.
+    assert cfg.actions_for(["fist", "pinch"]) == [{"action": "left_click"}]
+    assert cfg.actions_for(["pinch", "fist"]) == [{"action": "right_click"}]
+
+
 def test_duplicate_pair_raises(tmp_path):
     with pytest.raises(ValueError, match="[Dd]uplicate"):
         load_config(

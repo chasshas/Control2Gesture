@@ -195,8 +195,9 @@ def classify_hands(
     """Classify each detected hand and return ``[left_gesture, right_gesture]``.
 
     This is the single recognition entry point: the whole system speaks in this
-    ``[left, right]`` pair, and :meth:`Config.action_for` looks the pair up
-    directly to decide what to do.
+    ``[left, right]`` pair, and :meth:`Config.matching_patterns` looks the pair
+    up against the configured (possibly wildcarded) patterns to decide what to
+    do.
 
     ``hands`` is a list of ``(landmarks, handedness)`` pairs (0, 1, or 2 of
     them), as produced from :class:`HandTracker` results. The output is always a

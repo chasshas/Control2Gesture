@@ -20,7 +20,7 @@ from .gui_model import GestureDocument, Mapping
 
 DEFAULT_CONFIG = Path(__file__).resolve().parents[2] / "config" / "gestures.yaml"
 
-_SIDE_CHOICES = [gm.EMPTY_SIDE, *gm.POSES]
+_SIDE_CHOICES = [gm.EMPTY_SIDE, gm.ANY, *gm.POSES]
 
 
 class MappingDialog(tk.Toplevel):

@@ -34,6 +34,10 @@ POSES: list[str] = [
     "pinch",
 ]
 
+# Wildcard usable on either side of a mapping (see config.ANY): matches
+# whatever that hand is doing, including no hand at all.
+ANY = "any"
+
 # Action names the mapper understands (see action_mapper / controller).
 ACTIONS: list[str] = [
     "none",
@@ -237,7 +241,7 @@ def validate_mappings(mappings: list[Mapping]) -> list[str]:
         label = f"Row {i} ({side_to_display(m.left)}, {side_to_display(m.right)})"
 
         for side_name, side in (("left", m.left), ("right", m.right)):
-            if side is not None and side not in POSES:
+            if side is not None and side != ANY and side not in POSES:
                 errors.append(f"{label}: unknown {side_name} pose '{side}'.")
 
         if m.left is None and m.right is None:
